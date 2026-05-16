@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
-import { Camera, CheckCircle, Calculator } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Camera, CheckCircle, Calculator, DownloadCloud } from "lucide-react";
 import { analyzeGaragePhoto } from "@/app/actions/vision";
 import LeadCaptureSqueeze from "@/components/LeadCaptureSqueeze";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import EstimateDocument from "@/components/pdf/EstimateDocument";
 
 // Types
 interface GarageSpecs {
@@ -27,6 +29,12 @@ export default function GarageEstimator({
   const [specs, setSpecs] = useState<GarageSpecs | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showLeadForm, setShowLeadForm] = useState(false);
+
+  // FIXED 1: Added missing client-side hydration check for the PDF renderer
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Helper to format currency
   const formatPrice = (amount: number) => {
@@ -55,7 +63,6 @@ export default function GarageEstimator({
         total += baseRates.windowSurcharge[tier] * specs.doorCount;
       }
 
-      // DYNAMIC ACTION: Multiply total by contractor markup configuration
       return total * multiplier;
     };
 
@@ -85,7 +92,7 @@ export default function GarageEstimator({
 
       if (result.success) {
         setSpecs(result.data);
-        setShowLeadForm(true); // Intercept and show form
+        setShowLeadForm(true);
       } else {
         alert(`Failed: ${result.error}`);
         setSpecs(null);
@@ -148,9 +155,11 @@ export default function GarageEstimator({
       {/* STAGE 2: Gated Lead Capture Form */}
       {specs && showLeadForm && (
         <LeadCaptureSqueeze
-          projectType="Garage"
-          tenantId={tenantId} // DYNAMIC ACTION: Pipes the incoming route variable straight to Supabase
+          projectType="Garage Door Install"
+          tenantId={tenantId}
           aiSpecs={specs}
+          // Added estimated value payload required by your database
+          estimatedValue={calculateGaragePriceTiers(specs).better}
           onSuccess={() => setShowLeadForm(false)}
         />
       )}
@@ -213,6 +222,41 @@ export default function GarageEstimator({
               />
             </div>
           </div>
+
+          {/* PDF DOWNLOAD BUTTON */}
+          {isClient && (
+            <div className="mt-8 pt-8 border-t border-slate-200 text-center">
+              <PDFDownloadLink
+                document={
+                  <EstimateDocument
+                    consumerName="Homeowner" // FIXED 3: Hardcoded safely since form state lives in the child component
+                    projectType="Garage Door Installation" // FIXED 2: Correct project naming
+                    date={new Date().toLocaleDateString()}
+                    aiSpecs={{
+                      "Door Count": specs.doorCount.toString(),
+                      "Size Requirements": specs.sizeType.join(" & "),
+                      "Material Match": specs.materialStyle,
+                      Windows: specs.hasWindows ? "Included" : "None",
+                    }}
+                    estimatedValue={calculateGaragePriceTiers(specs).better} // FIXED 2: Correct function execution
+                  />
+                }
+                fileName={`Garage-Estimate.pdf`}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition-all shadow-md"
+              >
+                {({ loading }) =>
+                  loading ? (
+                    "Compiling PDF..."
+                  ) : (
+                    <>
+                      <DownloadCloud className="w-4 h-4" />
+                      Download Official PDF Quote
+                    </>
+                  )
+                }
+              </PDFDownloadLink>
+            </div>
+          )}
 
           <button
             onClick={() => {

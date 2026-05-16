@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, Plus, Sparkles, Calculator } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, Plus, Sparkles, Calculator, DownloadCloud } from "lucide-react";
 import { analyzeBathroom } from "@/app/actions/bathroom";
 import LeadCaptureSqueeze from "@/components/LeadCaptureSqueeze";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import EstimateDocument from "@/components/pdf/EstimateDocument";
 
 interface EstimatorProps {
   tenantId?: string;
@@ -18,6 +20,12 @@ export default function BathroomEstimator({
   const [loading, setLoading] = useState(false);
   const [specs, setSpecs] = useState<any>(null);
   const [showLeadForm, setShowLeadForm] = useState(false);
+
+  // FIXED 1: Added missing client-side hydration check for the PDF renderer
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // --- PRICING LOGIC ---
   const calculateBathroomPriceTiers = (specs: any) => {
@@ -240,6 +248,41 @@ export default function BathroomEstimator({
               />
             </div>
           </div>
+
+          {/* PDF DOWNLOAD BUTTON (Conditionally rendered on client to avoid Next.js hydration mismatch) */}
+          {isClient && (
+            <div className="mt-8 pt-8 border-t border-slate-200 text-center">
+              <PDFDownloadLink
+                document={
+                  <EstimateDocument
+                    consumerName="Homeowner" // FIXED 3: Hardcoded safely since form state lives in the child component
+                    projectType="Garage Door Installation" // FIXED 2: Correct project naming
+                    date={new Date().toLocaleDateString()}
+                    aiSpecs={{
+                      "Door Count": specs.doorCount.toString(),
+                      "Size Requirements": specs.sizeType.join(" & "),
+                      "Material Match": specs.materialStyle,
+                      Windows: specs.hasWindows ? "Included" : "None",
+                    }}
+                    estimatedValue={calculateBathroomPriceTiers(specs).better} // FIXED 2: Correct function execution
+                  />
+                }
+                fileName={`Bathroom-Estimate.pdf`}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition-all shadow-md"
+              >
+                {({ loading }) =>
+                  loading ? (
+                    "Compiling PDF..."
+                  ) : (
+                    <>
+                      <DownloadCloud className="w-4 h-4" />
+                      Download Official PDF Quote
+                    </>
+                  )
+                }
+              </PDFDownloadLink>
+            </div>
+          )}
 
           <button
             onClick={resetEstimator}

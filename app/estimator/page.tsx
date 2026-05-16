@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Home,
   CarFront,
@@ -11,11 +14,6 @@ import {
   Wrench,
   Hammer,
 } from "lucide-react";
-
-export const metadata = {
-  title: "AI Estimators | BUILDRAIL",
-  description: "Select a project to generate an AI-powered estimate.",
-};
 
 const estimators = [
   {
@@ -97,6 +95,11 @@ const estimators = [
 ];
 
 export default function EstimatorHub() {
+  const pathname = usePathname();
+
+  // DYNAMIC ACTION: If the user is on the /demo route, lock pricing across cards
+  const isDemoMode = pathname.startsWith("/demo");
+
   return (
     <div className="min-h-screen bg-slate-50 py-16 px-6">
       <div className="max-w-5xl mx-auto space-y-12">
@@ -104,14 +107,17 @@ export default function EstimatorHub() {
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-white border border-slate-200 rounded-full text-xs font-bold text-slate-500 uppercase tracking-widest shadow-sm">
             <Sparkles className="w-3 h-3 text-blue-500" />
-            BUILDRAIL Engine
+            {isDemoMode
+              ? "Sandbox Interactive Preview"
+              : "BUILDRAIL Engine Workspace"}
           </div>
           <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight">
-            Select an Estimator
+            {isDemoMode ? "Explore Our AI Estimators" : "Select an Estimator"}
           </h1>
           <p className="text-lg text-slate-500 max-w-2xl mx-auto">
-            Choose a project type below. Our AI will analyze your property and
-            generate a localized, multi-tier estimate in seconds.
+            {isDemoMode
+              ? "Test drive our live tools. Select a vertical below to see how our instant vision parsing extraction works in real time."
+              : "Choose a project type below. Our AI will analyze your property and generate a localized, multi-tier estimate in seconds."}
           </p>
         </div>
 
@@ -119,10 +125,16 @@ export default function EstimatorHub() {
         <div className="grid md:grid-cols-2 gap-6">
           {estimators.map((tool) => {
             const Icon = tool.icon;
+
+            // DYNAMIC ACTION: Append search params to force demo configuration parameters down
+            const destinationHref = isDemoMode
+              ? `${tool.href}?demo=true`
+              : tool.href;
+
             return (
               <Link
                 key={tool.title}
-                href={tool.href}
+                href={destinationHref}
                 className="group outline-none"
               >
                 <div

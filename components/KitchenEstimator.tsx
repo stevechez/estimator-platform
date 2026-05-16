@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   Plus,
@@ -9,27 +9,35 @@ import {
   Utensils,
   CheckCircle,
   Lock,
+  DownloadCloud,
 } from "lucide-react";
 import { analyzeKitchen } from "@/app/actions/kitchen";
 import { captureLead } from "@/app/actions/leads";
 
-// Props definition
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import EstimateDocument from "@/components/pdf/EstimateDocument";
+
 interface EstimatorProps {
   tenantId?: string;
   multiplier?: number;
+  isDemo?: boolean;
 }
 
-// FIXED SYNTAX: Destructuring params inside the function parentheses
 export default function KitchenEstimator({
   tenantId = "REPLACE_WITH_DYNAMIC_TENANT_ID",
   multiplier = 1.0,
+  isDemo = false,
 }: EstimatorProps) {
-  // --- ALL HOOKS INSIDE THE COMPONENT ---
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [specs, setSpecs] = useState<any>(null);
 
-  // NEW STATES FOR LEAD CAPTURE
+  // Safe SSR hydration check for the PDF link
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [submittingLead, setSubmittingLead] = useState(false);
   const [contactInfo, setContactInfo] = useState({
@@ -38,7 +46,6 @@ export default function KitchenEstimator({
     phone: "",
   });
 
-  // --- KITCHEN PRICING LOGIC ---
   const calculateKitchenPriceTiers = (specs: any) => {
     const baseRates = {
       Small: { good: 25000, better: 45000, best: 75000 },
@@ -63,7 +70,6 @@ export default function KitchenEstimator({
         total += tier === "better" ? 12000 : 20000;
       }
 
-      // DYNAMIC ACTION: Multiplies base rates by contractor markup configurations
       return total * multiplier;
     };
 
@@ -118,7 +124,6 @@ export default function KitchenEstimator({
     e.preventDefault();
     setSubmittingLead(true);
 
-    // DYNAMIC ACTION: Saves using the actual incoming tenantId prop parameter row
     const result = await captureLead({
       tenant_id: tenantId,
       project_type: "Kitchen",
@@ -344,6 +349,7 @@ export default function KitchenEstimator({
                 title="Cosmetic Update"
                 desc="Reface cabinets, new stone counters, standard appliances."
                 price={formatPrice(calculateKitchenPriceTiers(specs).good)}
+                isDemo={isDemo}
               />
               <PriceTier
                 title="Full Replacement"
@@ -359,9 +365,39 @@ export default function KitchenEstimator({
             </div>
           </div>
 
+          {/* PDF DOWNLOAD BUTTON (Conditionally rendered on client to avoid Next.js hydration mismatch) */}
+          {isClient && (
+            <div className="mt-8 pt-8 border-t border-slate-200 text-center">
+              <PDFDownloadLink
+                document={
+                  <EstimateDocument
+                    consumerName={contactInfo.name || "Homeowner"}
+                    projectType="Kitchen Remodel"
+                    date={new Date().toLocaleDateString()}
+                    aiSpecs={specs}
+                    estimatedValue={calculateKitchenPriceTiers(specs).better}
+                  />
+                }
+                fileName={`Estimate-${(contactInfo.name || "Project").replace(/\s+/g, "-")}.pdf`}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition-all shadow-md"
+              >
+                {({ loading }) =>
+                  loading ? (
+                    "Compiling PDF..."
+                  ) : (
+                    <>
+                      <DownloadCloud className="w-4 h-4" />
+                      Download Official PDF Quote
+                    </>
+                  )
+                }
+              </PDFDownloadLink>
+            </div>
+          )}
+
           <button
             onClick={resetEstimator}
-            className="w-full py-4 text-slate-500 hover:text-slate-800 font-medium transition-colors"
+            className="w-full py-4 text-slate-500 hover:text-slate-800 font-medium transition-colors mt-4"
           >
             Scan another kitchen
           </button>

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { CheckCircle, Lock, Loader2 } from "lucide-react";
-import { captureLead } from "@/app/actions/leads";
+import { submitQualifiedLead } from "@/lib/supabase/leads";
 
 interface LeadCaptureProps {
   projectType:
@@ -12,17 +12,20 @@ interface LeadCaptureProps {
     | "Kitchen"
     | "HVAC"
     | "General Contractor"
-    | "Electrical";
+    | "Electrical"
+    | string;
   aiSpecs: any;
   onSuccess: () => void;
   tenantId?: string;
+  estimatedValue?: number; // Added to satisfy Supabase NOT NULL requirements
 }
 
 export default function LeadCaptureSqueeze({
   projectType,
   aiSpecs,
   onSuccess,
-  tenantId = "REPLACE_WITH_DYNAMIC_TENANT_ID",
+  tenantId = "clx9102", // Fallback to your test string slug
+  estimatedValue = 0,
 }: LeadCaptureProps) {
   const [submitting, setSubmitting] = useState(false);
   const [contactInfo, setContactInfo] = useState({
@@ -35,21 +38,28 @@ export default function LeadCaptureSqueeze({
     e.preventDefault();
     setSubmitting(true);
 
-    const result = await captureLead({
-      tenant_id: tenantId,
-      project_type: projectType,
-      customer_name: contactInfo.name,
-      customer_email: contactInfo.email,
-      customer_phone: contactInfo.phone,
-      ai_specs: aiSpecs,
-    });
+    try {
+      // 1. Fire the payload to the actual Supabase database
+      await submitQualifiedLead({
+        tenant_id: tenantId,
+        consumer_name: contactInfo.name,
+        consumer_email: contactInfo.email,
+        consumer_phone: contactInfo.phone,
+        property_address: "Not Provided", // Can add to UI later if needed
+        trade_classification: projectType,
+        estimated_value: estimatedValue,
+        selected_tier: "Pending Review",
+        ai_specs: aiSpecs || {},
+      });
 
-    if (result.success) {
-      onSuccess(); // This "unlocks" the parent component's results
-    } else {
+      // 2. Success! Trigger parent component to hide form and reveal pricing
+      onSuccess();
+    } catch (error) {
+      console.error("Failed to unlock estimate:", error);
       alert("Failed to save lead. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   return (
