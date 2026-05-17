@@ -1,51 +1,63 @@
-// lib/supabase/pricing.ts
-import { createClient } from "./client"; // Maps perfectly to your factory function export
+"use server";
 
+import { createClient } from "@supabase/supabase-js";
+
+// Uses the secure service role key to ensure the server can reliably read/write pricing data
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+);
+
+// The fully unified interface containing all trade configurations
 export interface PricingMatrix {
+  tenant_id: string;
+  company_name: string;
   pricing_multiplier: number;
   roofing_base_rate: number;
   kitchen_base_rate: number;
   bathroom_base_rate: number;
   hvac_base_rate: number;
+  garage_base_rate: number;
   electrical_base_rate: number;
   plumbing_base_rate: number;
 }
 
-// Fetch active baseline properties
+// Fetches the entire pricing row for a specific contractor
 export async function getTenantPricing(
   tenantId: string,
 ): Promise<PricingMatrix | null> {
-  // FIXED: Invoke the factory function to initialize the browser client session instance locally
-  const supabase = createClient();
+  try {
+    const { data, error } = await supabase
+      .from("contractors")
+      .select("*") // Grabs all columns, ensuring the new trades are included
+      .eq("tenant_id", tenantId)
+      .single();
 
-  const { data, error } = await supabase
-    .from("contractors")
-    .select(
-      "pricing_multiplier, roofing_base_rate, kitchen_base_rate, bathroom_base_rate, hvac_base_rate, electrical_base_rate, plumbing_base_rate",
-    )
-    .eq("id", tenantId)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Error loading pricing record:", error.message);
+    if (error || !data) return null;
+    return data as PricingMatrix;
+  } catch (error) {
+    console.error("Error fetching pricing:", error);
     return null;
   }
-  return data as PricingMatrix;
 }
 
-// Update parameters instantly via Row Level Security bounds
+// Allows updating either a single rate or the entire matrix simultaneously
 export async function updateTenantPricing(
   tenantId: string,
   updates: Partial<PricingMatrix>,
 ) {
-  // FIXED: Invoke the factory function here as well
-  const supabase = createClient();
+  try {
+    const { data, error } = await supabase
+      .from("contractors")
+      .update(updates)
+      .eq("tenant_id", tenantId)
+      .select()
+      .single();
 
-  const { data, error } = await supabase
-    .from("contractors")
-    .update(updates)
-    .eq("id", tenantId);
-
-  if (error) throw new Error(error.message);
-  return data;
+    if (error) throw new Error(error.message);
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Error updating pricing matrix:", error);
+    return { success: false, error: error.message };
+  }
 }

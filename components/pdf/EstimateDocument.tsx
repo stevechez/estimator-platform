@@ -1,4 +1,3 @@
-// components/pdf/EstimateDocument.tsx
 import {
   Document,
   Page,
@@ -8,105 +7,97 @@ import {
   Font,
 } from "@react-pdf/renderer";
 
-// Register standard fonts to ensure PDF renders identically across all devices
-Font.register({
-  family: "Inter",
-  fonts: [
-    {
-      src: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2",
-      fontWeight: 400,
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI6fAZ9hiA.woff2",
-      fontWeight: 700,
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFUfAZ9hiA.woff2",
-      fontWeight: 900,
-    },
-  ],
-});
-
 const styles = StyleSheet.create({
-  page: { padding: 40, fontFamily: "Inter", backgroundColor: "#ffffff" },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderBottomWidth: 2,
-    borderBottomColor: "#1e293b",
-    paddingBottom: 20,
-    marginBottom: 30,
-  },
-  brandTitle: {
+  page: { padding: 40, fontFamily: "Helvetica", backgroundColor: "#ffffff" },
+
+  title: {
     fontSize: 24,
     fontWeight: 900,
+    textAlign: "center",
+    marginBottom: 12,
     color: "#0f172a",
-    letterSpacing: 1,
-  },
-  brandSub: {
-    fontSize: 10,
-    color: "#64748b",
-    marginTop: 4,
-    textTransform: "uppercase",
-  },
-  metaBox: { alignItems: "flex-end" },
-  metaLabel: {
-    fontSize: 8,
-    color: "#94a3b8",
-    textTransform: "uppercase",
-    marginBottom: 2,
-  },
-  metaValue: { fontSize: 10, fontWeight: 700, color: "#0f172a" },
-
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: 900,
-    color: "#2563eb",
-    textTransform: "uppercase",
-    marginBottom: 10,
-    marginTop: 20,
-    letterSpacing: 1,
   },
 
-  gridRow: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-    paddingVertical: 8,
+  yellowBanner: {
+    backgroundColor: "#facc15",
+    padding: 8,
+    textAlign: "center",
+    marginBottom: 25,
   },
-  gridLabel: { width: "40%", fontSize: 10, color: "#64748b" },
-  gridValue: { width: "60%", fontSize: 10, fontWeight: 700, color: "#0f172a" },
+  bannerText: { fontSize: 10, color: "#0f172a", fontWeight: 700 },
 
-  pricingContainer: {
-    marginTop: 30,
-    backgroundColor: "#f8fafc",
-    borderRadius: 8,
-    padding: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: "#2563eb",
-  },
-  tierTitle: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: "#0f172a",
-    marginBottom: 4,
-  },
-  tierDesc: { fontSize: 10, color: "#64748b", marginBottom: 12 },
-  tierPrice: { fontSize: 24, fontWeight: 900, color: "#2563eb" },
-
-  footer: {
-    position: "absolute",
-    bottom: 40,
-    left: 40,
-    right: 40,
-    borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
-    paddingTop: 20,
+  gridContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
+    marginBottom: 25,
   },
-  disclaimer: { fontSize: 8, color: "#94a3b8", width: "70%", lineHeight: 1.4 },
-  pageNumber: { fontSize: 8, color: "#94a3b8" },
+  column: { width: "48%" },
+
+  sectionHeading: {
+    fontSize: 11,
+    fontWeight: 900,
+    color: "#0f172a",
+    marginBottom: 6,
+  },
+
+  infoTable: { width: "100%" },
+  infoRow: { flexDirection: "row" },
+  infoLabelCell: {
+    width: "35%",
+    backgroundColor: "#0f172a",
+    padding: 6,
+    border: "1pt solid #0f172a",
+  },
+  infoLabelText: { fontSize: 9, color: "#ffffff", fontWeight: 700 },
+  infoValueCell: {
+    width: "65%",
+    padding: 6,
+    border: "1pt solid #cbd5e1",
+    borderLeft: 0,
+  },
+  infoValueText: { fontSize: 9, color: "#0f172a" },
+
+  descText: {
+    fontSize: 10,
+    color: "#475569",
+    lineHeight: 1.5,
+    marginBottom: 25,
+  },
+
+  table: { width: "100%", border: "1pt solid #cbd5e1" },
+  tableHeader: { flexDirection: "row", backgroundColor: "#0f172a" },
+  th: {
+    padding: 8,
+    color: "#ffffff",
+    fontSize: 9,
+    fontWeight: 700,
+    borderRight: "1pt solid #cbd5e1",
+  },
+
+  tableRow: { flexDirection: "row", borderBottom: "1pt solid #cbd5e1" },
+  td: {
+    padding: 8,
+    fontSize: 9,
+    color: "#0f172a",
+    borderRight: "1pt solid #cbd5e1",
+  },
+
+  totalRow: { flexDirection: "row", backgroundColor: "#facc15" },
+  totalLabel: {
+    padding: 8,
+    fontSize: 10,
+    fontWeight: 900,
+    color: "#0f172a",
+    textAlign: "right",
+    borderRight: "1pt solid #eab308",
+  },
+  totalValue: {
+    padding: 8,
+    fontSize: 10,
+    fontWeight: 900,
+    color: "#0f172a",
+    textAlign: "right",
+  },
 });
 
 interface EstimateDocumentProps {
@@ -124,65 +115,184 @@ export default function EstimateDocument({
   aiSpecs,
   estimatedValue,
 }: EstimateDocumentProps) {
+  const formatCurrency = (amount: number) =>
+    `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  // Deconstruct the total into realistic line items based on industry standards
+  const demolition = estimatedValue * 0.15;
+  const materials = estimatedValue * 0.35;
+  const underlayment = estimatedValue * 0.1;
+  const labor = estimatedValue * 0.25;
+  const overhead = estimatedValue * 0.15;
+
   return (
     <Document>
       <Page size="LETTER" style={styles.page}>
-        {/* HEADER */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.brandTitle}>BUILDRAIL</Text>
-            <Text style={styles.brandSub}>Automated Project Estimation</Text>
-          </View>
-          <View style={styles.metaBox}>
-            <Text style={styles.metaLabel}>Prepared For</Text>
-            <Text style={styles.metaValue}>{consumerName}</Text>
-            <Text style={[styles.metaLabel, { marginTop: 8 }]}>
-              Date Generated
-            </Text>
-            <Text style={styles.metaValue}>{date}</Text>
-          </View>
+        <Text style={styles.title}>Independent Contractor Estimate</Text>
+
+        <View style={styles.yellowBanner}>
+          <Text style={styles.bannerText}>
+            BUILDRAIL ESTIMATION ENGINE | ALGORITHMIC PRICING MODEL
+          </Text>
         </View>
 
-        {/* PROJECT SCOPE SECTION */}
-        <Text style={styles.sectionTitle}>
-          Calculated Project Scope: {projectType}
-        </Text>
-        <View style={{ marginBottom: 20 }}>
-          {Object.entries(aiSpecs).map(([key, value]) => (
-            <View key={key} style={styles.gridRow}>
-              <Text style={styles.gridLabel}>{key}</Text>
-              <Text style={styles.gridValue}>{value}</Text>
+        <View style={styles.gridContainer}>
+          <View style={styles.column}>
+            <Text style={styles.sectionHeading}>Client Information</Text>
+            <View style={styles.infoTable}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoLabelCell}>
+                  <Text style={styles.infoLabelText}>Name</Text>
+                </View>
+                <View style={styles.infoValueCell}>
+                  <Text style={styles.infoValueText}>
+                    {consumerName || "Pending"}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.infoRow}>
+                <View style={[styles.infoLabelCell, { borderTop: 0 }]}>
+                  <Text style={styles.infoLabelText}>Property</Text>
+                </View>
+                <View style={[styles.infoValueCell, { borderTop: 0 }]}>
+                  <Text style={styles.infoValueText}>
+                    {aiSpecs["Property Address"] || "Satellite Extracted"}
+                  </Text>
+                </View>
+              </View>
             </View>
-          ))}
+          </View>
+
+          <View style={styles.column}>
+            <Text style={styles.sectionHeading}>Project Information</Text>
+            <View style={styles.infoTable}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoLabelCell}>
+                  <Text style={styles.infoLabelText}>Estimate No.</Text>
+                </View>
+                <View style={styles.infoValueCell}>
+                  <Text style={styles.infoValueText}>
+                    BR-{Math.floor(Math.random() * 90000) + 10000}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.infoRow}>
+                <View style={[styles.infoLabelCell, { borderTop: 0 }]}>
+                  <Text style={styles.infoLabelText}>Date</Text>
+                </View>
+                <View style={[styles.infoValueCell, { borderTop: 0 }]}>
+                  <Text style={styles.infoValueText}>{date}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
         </View>
 
-        {/* PRICING BLOCK */}
-        <Text style={styles.sectionTitle}>Financial Summary</Text>
-        <View style={styles.pricingContainer}>
-          <Text style={styles.tierTitle}>Standard Scope Projection</Text>
-          <Text style={styles.tierDesc}>
-            Includes estimated baseline materials, labor overhead, and standard
-            permits.
-          </Text>
-          <Text style={styles.tierPrice}>
-            ${estimatedValue.toLocaleString()}
-          </Text>
-        </View>
+        <Text style={styles.sectionHeading}>Project Scope Summary</Text>
+        <Text style={styles.descText}>
+          Algorithmic estimate for {projectType.toLowerCase()}, based on
+          satellite-extracted parameters ({aiSpecs["Total Area"]} @{" "}
+          {aiSpecs["Roof Pitch"]}). Scope includes removal of existing surface,
+          structural inspection, installation of premium materials, and complete
+          site cleanup.
+        </Text>
 
-        {/* FOOTER */}
-        <View style={styles.footer}>
-          <Text style={styles.disclaimer}>
-            This document was generated algorithmically based on user inputs and
-            regional data models. All figures are estimates only and do not
-            constitute a binding legal contract. A final on-site inspection is
-            required.
-          </Text>
-          <Text
-            style={styles.pageNumber}
-            render={({ pageNumber, totalPages }) =>
-              `${pageNumber} / ${totalPages}`
-            }
-          />
+        <View style={styles.table}>
+          {/* Header */}
+          <View style={styles.tableHeader}>
+            <Text style={[styles.th, { width: "45%" }]}>Description</Text>
+            <Text style={[styles.th, { width: "20%" }]}>Quantity</Text>
+            <Text
+              style={[
+                styles.th,
+                { width: "35%", borderRight: 0, textAlign: "right" },
+              ]}
+            >
+              Estimated Price (USD)
+            </Text>
+          </View>
+
+          {/* Rows */}
+          <View style={styles.tableRow}>
+            <Text style={[styles.td, { width: "45%" }]}>
+              Demolition & Tear-off
+            </Text>
+            <Text style={[styles.td, { width: "20%" }]}>1 job</Text>
+            <Text
+              style={[
+                styles.td,
+                { width: "35%", borderRight: 0, textAlign: "right" },
+              ]}
+            >
+              {formatCurrency(demolition)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={[styles.td, { width: "45%" }]}>
+              Premium Materials & Shingles
+            </Text>
+            <Text style={[styles.td, { width: "20%" }]}>Calculated Area</Text>
+            <Text
+              style={[
+                styles.td,
+                { width: "35%", borderRight: 0, textAlign: "right" },
+              ]}
+            >
+              {formatCurrency(materials)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={[styles.td, { width: "45%" }]}>
+              Underlayment & Flashing
+            </Text>
+            <Text style={[styles.td, { width: "20%" }]}>1 job</Text>
+            <Text
+              style={[
+                styles.td,
+                { width: "35%", borderRight: 0, textAlign: "right" },
+              ]}
+            >
+              {formatCurrency(underlayment)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={[styles.td, { width: "45%" }]}>
+              Licensed Labor & Installation
+            </Text>
+            <Text style={[styles.td, { width: "20%" }]}>Turnkey</Text>
+            <Text
+              style={[
+                styles.td,
+                { width: "35%", borderRight: 0, textAlign: "right" },
+              ]}
+            >
+              {formatCurrency(labor)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={[styles.td, { width: "45%" }]}>
+              Dumpsters, Permits & Cleanup
+            </Text>
+            <Text style={[styles.td, { width: "20%" }]}>1 job</Text>
+            <Text
+              style={[
+                styles.td,
+                { width: "35%", borderRight: 0, textAlign: "right" },
+              ]}
+            >
+              {formatCurrency(overhead)}
+            </Text>
+          </View>
+
+          {/* Totals */}
+          <View style={styles.totalRow}>
+            <Text style={[styles.totalLabel, { width: "65%" }]}>
+              Total Estimated Cost
+            </Text>
+            <Text style={[styles.totalValue, { width: "35%" }]}>
+              {formatCurrency(estimatedValue)}
+            </Text>
+          </View>
         </View>
       </Page>
     </Document>

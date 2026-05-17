@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Fragment } from "react"; // FIXED: Explicitly importing Fragment here
+import { useState, useEffect, Fragment } from "react";
 import {
   Search,
   Filter,
@@ -12,119 +12,183 @@ import {
   Zap,
   Thermometer,
   Wrench,
+  Droplet,
+  CarFront,
+  Loader2,
 } from "lucide-react";
 
-const INITIAL_LEADS = [
-  {
-    id: "LD-9401",
-    name: "Marcus Vance",
-    email: "marcus.v@gmail.com",
-    phone: "(408) 555-0192",
-    address: "10240 N Wolfe Rd, Cupertino, CA",
-    trade: "Kitchen Remodel",
-    icon: Utensils,
-    color: "text-emerald-400 bg-emerald-950/40 border-emerald-900/50",
-    tier: "Best Tier (Luxury Premium)",
-    estimate: 118500,
-    date: "May 15, 2026",
-    aiSpecs: {
-      "Cabinet Vol": "Extensive",
-      "Appliance Grade": "Sub-Zero Match",
-      "Layout Alteration": "True",
-      "Island Footprint": "Expanded",
-    },
-  },
-  {
-    id: "LD-9402",
-    name: "Sarah Jenkins",
-    email: "s.jenkins@outlook.com",
-    phone: "(650) 555-0143",
-    address: "21020 Homestead Rd, Cupertino, CA",
-    trade: "HVAC Upgrade",
-    icon: Thermometer,
-    color: "text-sky-400 bg-sky-950/40 border-sky-900/50",
-    tier: "Better Tier (High Efficiency)",
-    estimate: 16400,
-    date: "May 14, 2026",
-    aiSpecs: {
-      "Target Sizing": "4 Tons",
-      "Calculated SEER": "18 SEER",
-      "Ductwork Remediation": "Required",
-      "Est. 10-Yr Savings": "$4,200",
-    },
-  },
-  {
-    id: "LD-9403",
-    name: "David Chen",
-    email: "dchen.builds@techcorp.com",
-    phone: "(408) 555-0115",
-    address: "10600 Torre Ave, Cupertino, CA",
-    trade: "Roof Replacement",
-    icon: Home,
-    color: "text-blue-400 bg-blue-950/40 border-blue-900/50",
-    tier: "Good Tier (Architectural Shingle)",
-    estimate: 24800,
-    date: "May 12, 2026",
-    aiSpecs: {
-      "Sq Footage": "2,450 sqft",
-      "Calculated Pitch": "6:12",
-      "Topology Obstacles": "2 Skylights",
-      "Decking Condition": "Stable",
-    },
-  },
-  {
-    id: "LD-9404",
-    name: "Elena Rostova",
-    email: "elena.ros@yahoo.com",
-    phone: "(408) 555-0178",
-    address: "11900 Stevens Creek Blvd, Cupertino, CA",
-    trade: "Electrical & EV Charger",
-    icon: Zap,
-    color: "text-amber-400 bg-amber-950/40 border-amber-900/50",
-    tier: "Better Tier (Dual Load)",
-    estimate: 4200,
-    date: "May 11, 2026",
-    aiSpecs: {
-      "Charger Standard": "Level 2 Dual",
-      "Panel Headroom": "Insufficient",
-      "Required Upgrade": "200A Service MPU",
-      "Conduit Run Length": "45ft",
-    },
-  },
-  {
-    id: "LD-9405",
-    name: "Robert Miller",
-    email: "bob.miller@construction-services.net",
-    phone: "(510) 555-0122",
-    address: "19950 Stevens Creek Blvd, Cupertino, CA",
-    trade: "Plumbing Diagnostics",
+// 1. IMPORT YOUR LIVE FETCH ACTION
+import { getTenantLeads } from "@/lib/supabase/leads";
+import { createBrowserClient } from "@supabase/ssr";
+
+// 2. DYNAMIC TRADE BADGE MAPPER
+const getTradeConfig = (trade: string) => {
+  const t = trade?.toLowerCase() || "";
+  if (t.includes("kitchen"))
+    return {
+      icon: Utensils,
+      color: "text-emerald-400 bg-emerald-950/40 border-emerald-900/50",
+    };
+  if (t.includes("roof"))
+    return {
+      icon: Home,
+      color: "text-blue-400 bg-blue-950/40 border-blue-900/50",
+    };
+  if (t.includes("hvac"))
+    return {
+      icon: Thermometer,
+      color: "text-sky-400 bg-sky-950/40 border-sky-900/50",
+    };
+  if (t.includes("electrical"))
+    return {
+      icon: Zap,
+      color: "text-amber-400 bg-amber-950/40 border-amber-900/50",
+    };
+  if (t.includes("plumbing"))
+    return {
+      icon: Droplet,
+      color: "text-cyan-400 bg-cyan-950/40 border-cyan-900/50",
+    };
+  if (t.includes("garage"))
+    return {
+      icon: CarFront,
+      color: "text-slate-400 bg-slate-950/40 border-slate-900/50",
+    };
+  return {
     icon: Wrench,
-    color: "text-cyan-400 bg-cyan-950/40 border-cyan-900/50",
-    tier: "Good Tier (Standard Clearing)",
-    estimate: 1250,
-    date: "May 10, 2026",
-    aiSpecs: {
-      "Incident Type": "Mainline Clog",
-      "Severity Index": "Emergency High",
-      "Root Intrusion Tracer": "Highly Likely",
-      "Cleanout Access": "Exterior",
-    },
-  },
-];
+    color: "text-gray-400 bg-gray-950/40 border-gray-900/50",
+  };
+};
 
 export default function LeadsDashboardPage() {
-  const [leads] = useState(INITIAL_LEADS);
+  // 3. SWAPPED TO DYNAMIC STATE
+  const [leads, setLeads] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedTrade, setSelectedTrade] = useState("All Trades");
   const [activeLeadDetails, setActiveLeadDetails] = useState<string | null>(
     null,
   );
 
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
+
+  // const ACTIVE_TENANT_ID = "demo_contractor_001";
+  const ACTIVE_TENANT_ID = "REPLACE_WITH_DYNAMIC_TENANT_ID";
+
+  // 4. THE LIVE FETCH ENGINE
+  // 4. THE LIVE FETCH & REAL-TIME ENGINE
+  useEffect(() => {
+    let subscription: any;
+
+    async function loadLeadsForLiveUser() {
+      // Extract the live authenticated user
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        // 1. Fetch the initial historical leads
+        const response = await getTenantLeads(user.id);
+
+        if (response.success && response.leads) {
+          const mappedLeads = response.leads.map((rawLead: any) => {
+            const config = getTradeConfig(rawLead.trade_classification);
+            const shortId = `LD-${rawLead.id.split("-")[0].substring(0, 4).toUpperCase()}`;
+
+            return {
+              id: rawLead.id,
+              displayId: shortId,
+              name: rawLead.consumer_name || "Unknown Target",
+              email: rawLead.consumer_email || "No Email Provided",
+              phone: rawLead.consumer_phone || "",
+              address: rawLead.property_address || "Location Pending",
+              trade: rawLead.trade_classification || "Unclassified Scope",
+              icon: config.icon,
+              color: config.color,
+              tier: rawLead.selected_tier || "Research Phase",
+              estimate: rawLead.estimated_value || 0,
+              date: new Date(rawLead.created_at).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              }),
+              aiSpecs: rawLead.ai_specs || {
+                Status: "No parameters extracted",
+              },
+            };
+          });
+
+          setLeads(mappedLeads);
+        }
+
+        // 2. Subscribe to REAL-TIME database inserts for this specific contractor
+        subscription = supabase
+          .channel("realtime-tenant-leads")
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "leads",
+              filter: `tenant_id=eq.${user.id}`, // Only listen for THIS contractor's leads
+            },
+            (payload) => {
+              // When a new lead hits the DB, map it instantly
+              const rawLead = payload.new;
+              const config = getTradeConfig(rawLead.trade_classification);
+              const shortId = `LD-${rawLead.id.split("-")[0].substring(0, 4).toUpperCase()}`;
+
+              const newLead = {
+                id: rawLead.id,
+                displayId: shortId,
+                name: rawLead.consumer_name || "Unknown Target",
+                email: rawLead.consumer_email || "No Email Provided",
+                phone: rawLead.consumer_phone || "",
+                address: rawLead.property_address || "Location Pending",
+                trade: rawLead.trade_classification || "Unclassified Scope",
+                icon: config.icon,
+                color: config.color,
+                tier: rawLead.selected_tier || "Research Phase",
+                estimate: rawLead.estimated_value || 0,
+                date: new Date(rawLead.created_at).toLocaleDateString(
+                  undefined,
+                  {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  },
+                ),
+                aiSpecs: rawLead.ai_specs || {
+                  Status: "No parameters extracted",
+                },
+              };
+
+              // Inject it at the very top of the current state array without refreshing
+              setLeads((currentLeads) => [newLead, ...currentLeads]);
+            },
+          )
+          .subscribe();
+      } else {
+        window.location.href = "/auth";
+      }
+      setIsLoading(false);
+    }
+
+    loadLeadsForLiveUser();
+
+    // Cleanup the subscription when the user leaves the page
+    return () => {
+      if (subscription) supabase.removeChannel(subscription);
+    };
+  }, [supabase]);
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch =
       lead.name.toLowerCase().includes(search.toLowerCase()) ||
       lead.address.toLowerCase().includes(search.toLowerCase()) ||
-      lead.id.toLowerCase().includes(search.toLowerCase());
+      lead.displayId.toLowerCase().includes(search.toLowerCase());
     const matchesTrade =
       selectedTrade === "All Trades" || lead.trade === selectedTrade;
     return matchesSearch && matchesTrade;
@@ -135,9 +199,19 @@ export default function LeadsDashboardPage() {
     ...Array.from(new Set(leads.map((l) => l.trade))),
   ];
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+        <p className="text-sm font-black text-slate-500 uppercase tracking-[0.2em]">
+          Synchronizing Database...
+        </p>
+      </div>
+    );
+  }
+
   return (
-    // UPGRADED: Forced background to deep slate-950 to fit the modern dark aesthetic layout
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-10 space-y-8 max-w-7xl mx-auto pt-24">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-10 space-y-8 max-w-7xl mx-auto">
       {/* HEADER SUMMARY */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-900/80 pb-6">
         <div>
@@ -225,7 +299,6 @@ export default function LeadsDashboardPage() {
                   const isExpanded = activeLeadDetails === lead.id;
 
                   return (
-                    // FIXED: Replaced standard generic fragment with formal keyed React Fragment block
                     <Fragment key={lead.id}>
                       <tr
                         className={`hover:bg-slate-900/40 transition-colors ${isExpanded ? "bg-slate-900/30" : ""}`}
@@ -233,7 +306,7 @@ export default function LeadsDashboardPage() {
                         <td className="py-5 px-6 space-y-1.5">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-mono font-bold text-slate-500">
-                              {lead.id}
+                              {lead.displayId}
                             </span>
                             <span className="font-black text-white text-base">
                               {lead.name}
@@ -241,8 +314,12 @@ export default function LeadsDashboardPage() {
                           </div>
                           <div className="text-xs text-slate-400 font-medium space-x-2">
                             <span>{lead.email}</span>
-                            <span className="text-slate-700">•</span>
-                            <span>{lead.phone}</span>
+                            {lead.phone && (
+                              <>
+                                <span className="text-slate-700">•</span>
+                                <span>{lead.phone}</span>
+                              </>
+                            )}
                           </div>
                           <p className="text-xs text-slate-500 truncate max-w-[320px]">
                             {lead.address}
@@ -254,7 +331,7 @@ export default function LeadsDashboardPage() {
                             className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-bold tracking-wide uppercase ${lead.color}`}
                           >
                             <TradeIcon className="w-3.5 h-3.5" />
-                            {lead.trade}
+                            {lead.trade.split("-")[0].trim()}
                           </div>
                         </td>
 
@@ -297,8 +374,7 @@ export default function LeadsDashboardPage() {
                             <div className="space-y-4">
                               <div className="flex items-center gap-2 text-xs font-black text-blue-400 uppercase tracking-widest">
                                 <Cpu className="w-3.5 h-3.5" />
-                                Computer Vision AI Extracted Structural Scope
-                                Matrix
+                                Computed Algorithmic Specifications
                               </div>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 {Object.entries(lead.aiSpecs).map(
@@ -307,11 +383,11 @@ export default function LeadsDashboardPage() {
                                       key={key}
                                       className="bg-slate-900/60 border border-slate-800 p-3.5 rounded-xl space-y-1"
                                     >
-                                      <span className="text-[10px] text-slate-500 uppercase font-black tracking-wider block">
+                                      <span className="text-[10px] text-slate-500 uppercase font-black tracking-wider block truncate">
                                         {key}
                                       </span>
                                       <span className="text-sm font-bold text-white block">
-                                        {val}
+                                        {String(val)}
                                       </span>
                                     </div>
                                   ),

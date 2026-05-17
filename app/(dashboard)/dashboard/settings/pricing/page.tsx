@@ -1,271 +1,317 @@
-// app/(dashboard)/dashboard/settings/pricing/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { getTenantPricing, updateTenantPricing } from "@/lib/supabase/pricing";
+import React, { useState, useEffect } from "react";
 import {
-  Sliders,
-  DollarSign,
-  ShieldCheck,
   Save,
-  RotateCcw,
+  TrendingUp,
   Home,
-  Utensils,
   Bath,
-  Thermometer,
-  Zap,
-  Wrench,
+  Wind,
+  ChefHat,
+  DollarSign,
+  Calculator,
+  Info,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
+import {
+  getTenantPricing,
+  updateTenantPricing,
+  PricingMatrix,
+} from "@/lib/supabase/pricing";
 
-// Using your seeded testing UUID token
-const MOCK_TENANT_ID = "00000000-0000-0000-0000-000000000000";
+interface PricingRates {
+  roofing: number;
+  kitchen: number;
+  bathroom: number;
+  hvac: number;
+}
 
-export default function PriceControlsPage() {
-  const [multiplier, setMultiplier] = useState(1.0);
-  const [rates, setRates] = useState({
-    roofingBase: 8500,
-    kitchenBase: 45000,
-    bathroomBase: 18500,
-    hvacBase: 8200,
-    electricalBase: 2500,
-    plumbingBase: 1200,
+interface PricingMockData {
+  pricing_multiplier: number;
+  roofing_base_rate: number;
+  kitchen_base_rate: number;
+  bathroom_base_rate: number;
+  hvac_base_rate: number;
+}
+
+interface BaseRateInputProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  value: number;
+  onChange: (value: number) => void;
+}
+
+// Mocking the Supabase functions for the UI build.
+// You'll wire these to your actual lib/supabase/pricing.ts file.
+const MOCK_DB: PricingMockData = {
+  pricing_multiplier: 1.15,
+  roofing_base_rate: 18000,
+  kitchen_base_rate: 45000,
+  bathroom_base_rate: 16000,
+  hvac_base_rate: 12000,
+};
+
+export default function PricingControls() {
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+
+  // Core Pricing State
+  const [multiplier, setMultiplier] = useState<number>(1.0);
+  const [rates, setRates] = useState<PricingRates>({
+    roofing: 0,
+    kitchen: 0,
+    bathroom: 0,
+    hvac: 0,
   });
 
-  const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // For testing the dashboard, we use a dummy tenant ID.
+  const ACTIVE_TENANT_ID = "demo_contractor_001";
 
-  // READ DATA LOOP: Run server queries on mount parameters
+  // Load live data from Supabase on mount
   useEffect(() => {
-    async function loadPricingMetrics() {
-      setLoading(true);
-      const data = await getTenantPricing(MOCK_TENANT_ID);
+    async function loadPricing() {
+      const data = await getTenantPricing(ACTIVE_TENANT_ID);
+
       if (data) {
-        setMultiplier(Number(data.pricing_multiplier) || 1.0);
+        setMultiplier(data.pricing_multiplier);
         setRates({
-          roofingBase: Number(data.roofing_base_rate) || 8500,
-          kitchenBase: Number(data.kitchen_base_rate) || 45000,
-          bathroomBase: Number(data.bathroom_base_rate) || 18500,
-          hvacBase: Number(data.hvac_base_rate) || 8200,
-          electricalBase: Number(data.electrical_base_rate) || 2500,
-          plumbingBase: Number(data.plumbing_base_rate) || 1200,
+          roofing: data.roofing_base_rate,
+          kitchen: data.kitchen_base_rate,
+          bathroom: data.bathroom_base_rate,
+          hvac: data.hvac_base_rate,
         });
       }
-      setLoading(false);
+      setIsLoading(false);
     }
-    loadPricingMetrics();
+    loadPricing();
   }, []);
 
-  const handleRateChange = (field: string, value: string) => {
-    const numValue = parseFloat(value) || 0;
-    setRates((prev) => ({ ...prev, [field]: numValue }));
-  };
-
-  // WRITE DATA LOOP: Sync modified variables down into live Supabase records
-  const handleSaveChanges = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Save live data back to Supabase
+  const handleSave = async (): Promise<void> => {
     setIsSaving(true);
     setSaveSuccess(false);
-    setErrorMessage(null);
 
-    try {
-      await updateTenantPricing(MOCK_TENANT_ID, {
-        pricing_multiplier: multiplier,
-        roofing_base_rate: rates.roofingBase,
-        kitchen_base_rate: rates.kitchenBase,
-        bathroom_base_rate: rates.bathroomBase,
-        hvac_base_rate: rates.hvacBase,
-        electrical_base_rate: rates.electricalBase,
-        plumbing_base_rate: rates.plumbingBase,
-      });
+    const updatedMatrix: PricingMatrix = {
+      pricing_multiplier: multiplier,
+      roofing_base_rate: rates.roofing,
+      kitchen_base_rate: rates.kitchen,
+      bathroom_base_rate: rates.bathroom,
+      hvac_base_rate: rates.hvac,
+    };
+
+    const result = await updateTenantPricing(ACTIVE_TENANT_ID, updatedMatrix);
+
+    setIsSaving(false);
+
+    if (result.success) {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to commit database variables.");
-    } finally {
-      setIsSaving(false);
+    } else {
+      alert("Failed to save pricing matrix. Check console for details.");
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-400 flex items-center justify-center font-bold tracking-widest text-xs uppercase">
-        Querying Secure Workspace Tables...
+      <div className="flex-1 flex flex-col items-center justify-center h-[60vh] space-y-4">
+        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+          Loading Pricing Matrix...
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-10 space-y-8 max-w-5xl mx-auto pt-24">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-900 pb-6">
+    <div className="max-w-4xl mx-auto p-6 md:p-10 space-y-8 animate-in fade-in duration-500">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-black text-blue-400 uppercase tracking-[0.2em]">
-            Workspace Configuration
-          </p>
-          <h1 className="text-3xl font-black text-white tracking-tight mt-1">
-            Price Control Center
+          <h1 className="text-3xl font-extrabold text-slate-900">
+            Pricing Controls
           </h1>
+          <p className="text-slate-500 mt-1">
+            Manage your base rates and algorithmic multipliers to protect your
+            margins.
+          </p>
         </div>
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-600/20 disabled:opacity-70"
+        >
+          {isSaving ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Save className="w-5 h-5" />
+          )}
+          {isSaving ? "Saving..." : "Save Changes"}
+        </button>
       </div>
 
-      <form onSubmit={handleSaveChanges} className="space-y-8">
-        {/* RANGE SLIDER TRACK */}
-        <div className="bg-slate-900/20 border border-slate-900 rounded-2xl p-6 md:p-8 space-y-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/5 blur-[60px] rounded-full pointer-events-none" />
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 bg-blue-950 border border-blue-900/50 text-blue-400 rounded-xl flex items-center justify-center shrink-0">
-              <Sliders className="w-5 h-5" />
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-xl font-bold text-white tracking-tight">
-                Global Margin Multiplier
-              </h2>
-              <p className="text-xs text-slate-400 font-medium max-w-xl">
-                Scale all calculated baseline estimates down or up instantly
-                across active frameworks across external target installations.
-              </p>
-            </div>
+      {saveSuccess && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+          <p className="text-sm font-bold">
+            Pricing matrix updated successfully. All live widgets reflect these
+            numbers immediately.
+          </p>
+        </div>
+      )}
+
+      {/* SECTION 1: GLOBAL MULTIPLIER */}
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex items-start gap-4">
+          <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+            <TrendingUp className="w-6 h-6" />
           </div>
-          <div className="grid md:grid-cols-3 gap-6 items-center pt-4 border-t border-slate-900/60">
-            <div className="md:col-span-2 space-y-3">
-              <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
-                <span>Conservative (0.80x)</span>
-                <span>Aggressive (1.50x)</span>
-              </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">
+              Global Market Multiplier
+            </h2>
+            <p className="text-sm text-slate-500 mt-1 max-w-2xl">
+              Adjust your overall pricing based on market demand, seasonal
+              shifts, or scheduling capacity. A multiplier of 1.0 represents
+              your standard base rate. 1.15 adds a 15% surge.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-6 bg-slate-50 grid md:grid-cols-2 gap-8 items-center">
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
+              Active Multiplier Factor
+            </label>
+            <div className="flex items-center gap-4">
               <input
                 type="range"
-                min="0.80"
-                max="1.50"
-                step="0.01"
+                min="0.8"
+                max="2.0"
+                step="0.05"
                 value={multiplier}
                 onChange={(e) => setMultiplier(parseFloat(e.target.value))}
-                className="w-full accent-blue-500 h-1.5 bg-slate-950 rounded-lg cursor-pointer appearance-none"
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
               />
-            </div>
-            <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-between shadow-inner">
-              <span className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                Active Margin
-              </span>
-              <div className="flex items-center gap-1 font-mono font-black text-2xl text-white">
-                <span>{multiplier.toFixed(2)}</span>
-                <span className="text-xs text-blue-400 font-sans font-bold uppercase">
-                  x
-                </span>
+              <div className="w-20 bg-white border border-slate-200 rounded-lg py-2 text-center font-black text-indigo-600 shadow-sm">
+                {multiplier.toFixed(2)}x
               </div>
             </div>
           </div>
-        </div>
 
-        {/* INPUT GRID ROW CAP DATA */}
-        <div className="bg-slate-900/20 border border-slate-900 rounded-2xl p-6 md:p-8 space-y-6">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 bg-amber-950 border border-amber-900/50 text-amber-400 rounded-xl flex items-center justify-center shrink-0">
-              <DollarSign className="w-5 h-5" />
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-xl font-bold text-white tracking-tight">
-                Trade Baseline Configuration
-              </h2>
-              <p className="text-xs text-slate-400 font-medium max-w-xl">
-                Define standard bottom entry rate targets. Calculations evaluate
-                variables relative to these database markers.
+          {/* Live Impact Preview */}
+          <div className="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm flex gap-4 items-center">
+            <Calculator className="w-8 h-8 text-indigo-300" />
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Live Impact Preview
+              </p>
+              <p className="text-sm text-slate-700 mt-1">
+                A standard <strong>$10,000</strong> estimate will be presented
+                to homeowners as{" "}
+                <strong className="text-indigo-600">
+                  ${(10000 * multiplier).toLocaleString()}
+                </strong>
+                .
               </p>
             </div>
           </div>
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 pt-6 border-t border-slate-900/60">
-            {[
-              {
-                label: "Roofing Minimum Base",
-                field: "roofingBase",
-                icon: Home,
-                color: "text-blue-400",
-              },
-              {
-                label: "Kitchen Remodel Base",
-                field: "kitchenBase",
-                icon: Utensils,
-                color: "text-emerald-400",
-              },
-              {
-                label: "Bathroom Remodel Base",
-                field: "bathroomBase",
-                icon: Bath,
-                color: "text-cyan-400",
-              },
-              {
-                label: "HVAC Unit Sizing Base",
-                field: "hvacBase",
-                icon: Thermometer,
-                color: "text-sky-400",
-              },
-              {
-                label: "Electrical Service Base",
-                field: "electricalBase",
-                icon: Zap,
-                color: "text-amber-400",
-              },
-              {
-                label: "Plumbing Service Base",
-                field: "plumbingBase",
-                icon: Wrench,
-                color: "text-teal-400",
-              },
-            ].map((item) => {
-              const ItemIcon = item.icon;
-              return (
-                <div key={item.field} className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                    <ItemIcon className={`w-3.5 h-3.5 ${item.color}`} />
-                    {item.label}
-                  </label>
-                  <div className="relative rounded-xl shadow-inner">
-                    <DollarSign className="w-4 h-4 text-slate-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="number"
-                      value={rates[item.field as keyof typeof rates]}
-                      onChange={(e) =>
-                        handleRateChange(item.field, e.target.value)
-                      }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-sm font-mono font-bold text-white focus:outline-none focus:border-blue-500 transition-colors"
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        </div>
+      </section>
+
+      {/* SECTION 2: TRADE SPECIFIC BASE RATES */}
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+        <div className="p-6 border-b border-slate-100">
+          <h2 className="text-xl font-bold text-slate-900">Trade Base Rates</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Set the minimum starting cost for an average, standard-grade project
+            in your local market.
+          </p>
         </div>
 
-        {/* PERSISTENT ACTIONS FOOTER CONTAINER */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-900/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-md">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>
-              Changes commit directly to Supabase production architecture live.
-            </span>
-          </div>
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-            {saveSuccess && (
-              <span className="text-xs font-bold text-emerald-400 bg-emerald-950/50 border border-emerald-900/60 px-3 py-1.5 rounded-xl">
-                Supabase synced
-              </span>
-            )}
-            {errorMessage && (
-              <span className="text-xs font-bold text-red-400 bg-red-950/50 border border-red-900/60 px-3 py-1.5 rounded-xl">
-                {errorMessage}
-              </span>
-            )}
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-bold rounded-xl text-sm transition-all shadow-lg cursor-pointer"
-            >
-              <Save className="w-4 h-4" />
-              {isSaving ? "Syncing..." : "Save Pricing Matrix"}
-            </button>
-          </div>
+        <div className="p-6 grid sm:grid-cols-2 gap-6">
+          {/* Roof Input */}
+          <BaseRateInput
+            icon={<Home className="w-5 h-5" />}
+            title="Roof Replacement"
+            description="Baseline for a standard 20-square architectural shingle tear-off."
+            value={rates.roofing}
+            onChange={(val) => setRates({ ...rates, roofing: val })}
+          />
+
+          {/* Kitchen Input */}
+          <BaseRateInput
+            icon={<ChefHat className="w-5 h-5" />}
+            title="Kitchen Remodel"
+            description="Baseline for a standard 150 sqft kitchen (cabinets, counters, basic layout)."
+            value={rates.kitchen}
+            onChange={(val) => setRates({ ...rates, kitchen: val })}
+          />
+
+          {/* Bath Input */}
+          <BaseRateInput
+            icon={<Bath className="w-5 h-5" />}
+            title="Bathroom Remodel"
+            description="Baseline for a standard 40 sqft full hall bathroom refresh."
+            value={rates.bathroom}
+            onChange={(val) => setRates({ ...rates, bathroom: val })}
+          />
+
+          {/* HVAC Input */}
+          <BaseRateInput
+            icon={<Wind className="w-5 h-5" />}
+            title="HVAC System Upgrade"
+            description="Baseline for a standard 3-ton 16 SEER system replacement."
+            value={rates.hvac}
+            onChange={(val) => setRates({ ...rates, hvac: val })}
+          />
         </div>
-      </form>
+
+        <div className="p-4 bg-blue-50/50 border-t border-slate-100 text-xs text-slate-500 flex items-start gap-2 rounded-b-2xl">
+          <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+          <p>
+            The AI Estimation Engine uses these base rates as a starting point.
+            It dynamically scales costs up based on the homeowner's square
+            footage, complexity inputs, and your global multiplier.
+          </p>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// Helper Component for the Input Cards
+function BaseRateInput({
+  icon,
+  title,
+  description,
+  value,
+  onChange,
+}: BaseRateInputProps) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-slate-800 font-bold">
+        <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
+          {icon}
+        </div>
+        {title}
+      </div>
+      <p className="text-[11px] text-slate-400 font-medium leading-relaxed min-h-[34px]">
+        {description}
+      </p>
+      <div className="relative">
+        <DollarSign className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <input
+          type="number"
+          min="0"
+          step="500"
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 font-black text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+        />
+      </div>
     </div>
   );
 }
