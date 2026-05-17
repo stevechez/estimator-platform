@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import {
   MapPin,
   Satellite,
@@ -29,13 +29,11 @@ interface RoofSpecs {
   existingLayers: number;
 }
 
-interface EstimatorProps {
-  tenantId?: string;
-}
-
-export default function RoofEstimator() {
+// 1. Rename the main component and remove the "export default"
+function RoofEstimatorContent() {
   const searchParams = useSearchParams();
   const tenantId = searchParams.get("tenant");
+
   // --- DYNAMIC TENANT CONFIGURATION STATE ---
   const [tenantConfig, setTenantConfig] = useState<PricingMatrix | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
@@ -55,6 +53,10 @@ export default function RoofEstimator() {
   });
 
   const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // FETCH LIVE DATA FROM SUPABASE ON WIDGET MOUNT
   useEffect(() => {
@@ -573,5 +575,18 @@ function PriceTier({ title, price, desc, featured = false }: any) {
         </p>
       </div>
     </div>
+  );
+}
+export default function RoofEstimator() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center space-y-4">
+          <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        </div>
+      }
+    >
+      <RoofEstimatorContent />
+    </Suspense>
   );
 }
