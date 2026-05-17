@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createBrowserClient } from "@supabase/ssr";
 import {
   Save,
   TrendingUp,
@@ -13,27 +14,15 @@ import {
   Info,
   CheckCircle2,
   Loader2,
+  CarFront,
+  Zap,
+  Droplet,
 } from "lucide-react";
 import {
   getTenantPricing,
   updateTenantPricing,
   PricingMatrix,
 } from "@/lib/supabase/pricing";
-
-interface PricingRates {
-  roofing: number;
-  kitchen: number;
-  bathroom: number;
-  hvac: number;
-}
-
-interface PricingMockData {
-  pricing_multiplier: number;
-  roofing_base_rate: number;
-  kitchen_base_rate: number;
-  bathroom_base_rate: number;
-  hvac_base_rate: number;
-}
 
 interface BaseRateInputProps {
   icon: React.ReactNode;
@@ -43,175 +32,186 @@ interface BaseRateInputProps {
   onChange: (value: number) => void;
 }
 
-// Mocking the Supabase functions for the UI build.
-// You'll wire these to your actual lib/supabase/pricing.ts file.
-const MOCK_DB: PricingMockData = {
-  pricing_multiplier: 1.15,
-  roofing_base_rate: 18000,
-  kitchen_base_rate: 45000,
-  bathroom_base_rate: 16000,
-  hvac_base_rate: 12000,
-};
-
 export default function PricingControls() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
 
-  // Core Pricing State
+  // Unified State with fallback variables matching your database schema schema
   const [multiplier, setMultiplier] = useState<number>(1.0);
-  const [rates, setRates] = useState<PricingRates>({
+  const [rates, setRates] = useState({
     roofing: 0,
     kitchen: 0,
     bathroom: 0,
     hvac: 0,
+    garage: 0,
+    electrical: 0,
+    plumbing: 0,
   });
 
-  // For testing the dashboard, we use a dummy tenant ID.
-  const ACTIVE_TENANT_ID = "demo_contractor_001";
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
 
-  // Load live data from Supabase on mount
+  // LOAD LIVE SESSION DATA
   useEffect(() => {
     async function loadPricing() {
-      const data = await getTenantPricing(ACTIVE_TENANT_ID);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      if (data) {
-        setMultiplier(data.pricing_multiplier);
-        setRates({
-          roofing: data.roofing_base_rate,
-          kitchen: data.kitchen_base_rate,
-          bathroom: data.bathroom_base_rate,
-          hvac: data.hvac_base_rate,
-        });
+      if (user) {
+        const data = await getTenantPricing(user.id);
+        if (data) {
+          setMultiplier(data.pricing_multiplier);
+          setRates({
+            roofing: data.roofing_base_rate || 0,
+            kitchen: data.kitchen_base_rate || 0,
+            bathroom: data.bathroom_base_rate || 0,
+            hvac: data.hvac_base_rate || 0,
+            garage: data.garage_base_rate || 0,
+            electrical: data.electrical_base_rate || 0,
+            plumbing: data.plumbing_base_rate || 0,
+          });
+        }
+      } else {
+        window.location.href = "/auth";
       }
       setIsLoading(false);
     }
     loadPricing();
-  }, []);
+  }, [supabase]);
 
-  // Save live data back to Supabase
+  // SAVE UPDATED CONFIG MATRIX
   const handleSave = async (): Promise<void> => {
     setIsSaving(true);
     setSaveSuccess(false);
 
-    const updatedMatrix: PricingMatrix = {
-      pricing_multiplier: multiplier,
-      roofing_base_rate: rates.roofing,
-      kitchen_base_rate: rates.kitchen,
-      bathroom_base_rate: rates.bathroom,
-      hvac_base_rate: rates.hvac,
-    };
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    const result = await updateTenantPricing(ACTIVE_TENANT_ID, updatedMatrix);
+    if (user) {
+      // Pass a partial object to protect internal keys like tenant_id
+      const updatedMatrix: Partial<PricingMatrix> = {
+        pricing_multiplier: multiplier,
+        roofing_base_rate: rates.roofing,
+        kitchen_base_rate: rates.kitchen,
+        bathroom_base_rate: rates.bathroom,
+        hvac_base_rate: rates.hvac,
+        garage_base_rate: rates.garage,
+        electrical_base_rate: rates.electrical,
+        plumbing_base_rate: rates.plumbing,
+      };
 
-    setIsSaving(false);
+      const result = await updateTenantPricing(user.id, updatedMatrix);
 
-    if (result.success) {
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } else {
-      alert("Failed to save pricing matrix. Check console for details.");
+      if (result.success) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        alert(`Failed to save operational updates: ${result.error}`);
+      }
     }
+    setIsSaving(false);
   };
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center h-[60vh] space-y-4">
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] space-y-4 bg-slate-950">
         <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-          Loading Pricing Matrix...
+        <p className="text-sm font-bold text-slate-500 uppercase tracking-[0.2em]">
+          Synchronizing Config Matrix...
         </p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 md:p-10 space-y-8 animate-in fade-in duration-500">
+    <div className="max-w-5xl mx-auto p-6 md:p-10 space-y-8 bg-slate-950 text-slate-100">
       {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-900/80 pb-6">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900">
-            Pricing Controls
-          </h1>
-          <p className="text-slate-500 mt-1">
-            Manage your base rates and algorithmic multipliers to protect your
-            margins.
+          <p className="text-xs font-black text-blue-400 uppercase tracking-[0.2em]">
+            Operational Settings
           </p>
+          <h1 className="text-3xl font-black text-white tracking-tight mt-1">
+            Algorithmic Pricing Controls
+          </h1>
         </div>
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-600/20 disabled:opacity-70"
+          className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/10 disabled:opacity-50"
         >
           {isSaving ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <Save className="w-5 h-5" />
+            <Save className="w-4 h-4" />
           )}
-          {isSaving ? "Saving..." : "Save Changes"}
+          {isSaving ? "Saving..." : "Commit Matrix Updates"}
         </button>
       </div>
 
       {saveSuccess && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-          <p className="text-sm font-bold">
-            Pricing matrix updated successfully. All live widgets reflect these
-            numbers immediately.
-          </p>
+        <div className="bg-emerald-950/40 border border-emerald-900/50 text-emerald-400 text-xs font-bold p-4 rounded-xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          Global structural pricing variables successfully synchronized. All
+          live client widgets updated.
         </div>
       )}
 
       {/* SECTION 1: GLOBAL MULTIPLIER */}
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-start gap-4">
-          <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+      <section className="bg-slate-900/40 border border-slate-800/60 rounded-2xl shadow-sm overflow-hidden backdrop-blur-sm">
+        <div className="p-6 border-b border-slate-900/60 flex items-start gap-4">
+          <div className="w-12 h-12 bg-blue-950 border border-blue-900/40 text-blue-400 rounded-xl flex items-center justify-center shrink-0">
             <TrendingUp className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-900">
+            <h2 className="text-base font-black text-white uppercase tracking-wider">
               Global Market Multiplier
             </h2>
-            <p className="text-sm text-slate-500 mt-1 max-w-2xl">
-              Adjust your overall pricing based on market demand, seasonal
-              shifts, or scheduling capacity. A multiplier of 1.0 represents
-              your standard base rate. 1.15 adds a 15% surge.
+            <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
+              Scale your entire multi-widget portfolio up or down instantly. Use
+              this to absorb macroeconomic material fluctuations or adjust for
+              high-demand seasonal trends.
             </p>
           </div>
         </div>
 
-        <div className="p-6 bg-slate-50 grid md:grid-cols-2 gap-8 items-center">
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
+        <div className="p-6 bg-slate-950/40 grid md:grid-cols-2 gap-8 items-center">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1 block">
               Active Multiplier Factor
             </label>
             <div className="flex items-center gap-4">
               <input
                 type="range"
-                min="0.8"
+                min="0.5"
                 max="2.0"
                 step="0.05"
                 value={multiplier}
                 onChange={(e) => setMultiplier(parseFloat(e.target.value))}
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 focus:outline-none"
               />
-              <div className="w-20 bg-white border border-slate-200 rounded-lg py-2 text-center font-black text-indigo-600 shadow-sm">
+              <div className="w-20 bg-slate-900 border border-slate-800 rounded-xl py-2 text-center font-black text-blue-400 shadow-sm text-sm">
                 {multiplier.toFixed(2)}x
               </div>
             </div>
           </div>
 
           {/* Live Impact Preview */}
-          <div className="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm flex gap-4 items-center">
-            <Calculator className="w-8 h-8 text-indigo-300" />
+          <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800/80 shadow-sm flex gap-4 items-center">
+            <Calculator className="w-8 h-8 text-slate-700" />
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
                 Live Impact Preview
               </p>
-              <p className="text-sm text-slate-700 mt-1">
-                A standard <strong>$10,000</strong> estimate will be presented
-                to homeowners as{" "}
-                <strong className="text-indigo-600">
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                A standard <strong className="text-slate-200">$10,000</strong>{" "}
+                estimate will be presented to homeowners as{" "}
+                <strong className="text-blue-400 font-bold">
                   ${(10000 * multiplier).toLocaleString()}
                 </strong>
                 .
@@ -222,59 +222,82 @@ export default function PricingControls() {
       </section>
 
       {/* SECTION 2: TRADE SPECIFIC BASE RATES */}
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm">
-        <div className="p-6 border-b border-slate-100">
-          <h2 className="text-xl font-bold text-slate-900">Trade Base Rates</h2>
-          <p className="text-sm text-slate-500 mt-1">
-            Set the minimum starting cost for an average, standard-grade project
-            in your local market.
+      <section className="bg-slate-900/40 border border-slate-800/60 rounded-2xl shadow-sm backdrop-blur-sm">
+        <div className="p-6 border-b border-slate-900/60">
+          <h2 className="text-base font-black text-white uppercase tracking-wider">
+            Regional Baseline Calculations
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Set the minimum starting cost for standard trade scopes before
+            parameters or scaling equations are applied.
           </p>
         </div>
 
-        <div className="p-6 grid sm:grid-cols-2 gap-6">
-          {/* Roof Input */}
+        <div className="p-6 grid sm:grid-cols-2 md:grid-cols-3 gap-6">
           <BaseRateInput
-            icon={<Home className="w-5 h-5" />}
+            icon={<Home className="w-4 h-4" />}
             title="Roof Replacement"
-            description="Baseline for a standard 20-square architectural shingle tear-off."
+            description="Standard 20-square architectural shingle baseline template."
             value={rates.roofing}
             onChange={(val) => setRates({ ...rates, roofing: val })}
           />
 
-          {/* Kitchen Input */}
           <BaseRateInput
-            icon={<ChefHat className="w-5 h-5" />}
+            icon={<ChefHat className="w-4 h-4" />}
             title="Kitchen Remodel"
-            description="Baseline for a standard 150 sqft kitchen (cabinets, counters, basic layout)."
+            description="Baseline template for a standard structural kitchen framework."
             value={rates.kitchen}
             onChange={(val) => setRates({ ...rates, kitchen: val })}
           />
 
-          {/* Bath Input */}
           <BaseRateInput
-            icon={<Bath className="w-5 h-5" />}
+            icon={<Bath className="w-4 h-4" />}
             title="Bathroom Remodel"
-            description="Baseline for a standard 40 sqft full hall bathroom refresh."
+            description="Baseline variable for primary plumbing bath conversions."
             value={rates.bathroom}
             onChange={(val) => setRates({ ...rates, bathroom: val })}
           />
 
-          {/* HVAC Input */}
           <BaseRateInput
-            icon={<Wind className="w-5 h-5" />}
-            title="HVAC System Upgrade"
-            description="Baseline for a standard 3-ton 16 SEER system replacement."
+            icon={<Wind className="w-4 h-4" />}
+            title="HVAC Upgrade"
+            description="Baseline rate configuration for standard condenser sets."
             value={rates.hvac}
             onChange={(val) => setRates({ ...rates, hvac: val })}
           />
+
+          <BaseRateInput
+            icon={<CarFront className="w-4 h-4" />}
+            title="Garage Expansion"
+            description="Baseline valuation array for slab construction projects."
+            value={rates.garage}
+            onChange={(val) => setRates({ ...rates, garage: val })}
+          />
+
+          <BaseRateInput
+            icon={<Zap className="w-4 h-4" />}
+            title="Electrical Infrastructure"
+            description="Baseline index variable for smart service panel refits."
+            value={rates.electrical}
+            onChange={(val) => setRates({ ...rates, electrical: val })}
+          />
+
+          <BaseRateInput
+            icon={<Droplet className="w-4 h-4" />}
+            title="Plumbing Core"
+            description="Baseline matrix index for mainline repiping updates."
+            value={rates.plumbing}
+            onChange={(val) => setRates({ ...rates, plumbing: val })}
+          />
         </div>
 
-        <div className="p-4 bg-blue-50/50 border-t border-slate-100 text-xs text-slate-500 flex items-start gap-2 rounded-b-2xl">
+        <div className="p-4 bg-slate-950/60 border-t border-slate-900/60 text-[11px] text-slate-500 flex items-start gap-2 rounded-b-2xl">
           <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-          <p>
-            The AI Estimation Engine uses these base rates as a starting point.
-            It dynamically scales costs up based on the homeowner's square
-            footage, complexity inputs, and your global multiplier.
+          <p className="leading-relaxed">
+            The BUILDRAIL algorithmic orchestration layers parse these core
+            integers dynamically. Baseline metrics scale upward relative to
+            homeowner scope inputs, satellite measurements, and structural
+            complexity indexes before outputting downline vectors.
           </p>
         </div>
       </section>
@@ -282,7 +305,6 @@ export default function PricingControls() {
   );
 }
 
-// Helper Component for the Input Cards
 function BaseRateInput({
   icon,
   title,
@@ -291,25 +313,26 @@ function BaseRateInput({
   onChange,
 }: BaseRateInputProps) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 text-slate-800 font-bold">
-        <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
+    <div className="bg-slate-950 border border-slate-900 rounded-xl p-4 space-y-2.5">
+      <div className="flex items-center gap-2 text-slate-200 font-bold text-xs uppercase tracking-wide">
+        <div className="p-1.5 bg-slate-900 border border-slate-800 text-slate-400 rounded-lg">
           {icon}
         </div>
         {title}
       </div>
-      <p className="text-[11px] text-slate-400 font-medium leading-relaxed min-h-[34px]">
+      <p className="text-[10px] text-slate-500 font-medium leading-relaxed min-h-[30px]">
         {description}
       </p>
       <div className="relative">
-        <DollarSign className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <DollarSign className="w-4 h-4 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
         <input
           type="number"
           min="0"
           step="500"
-          value={value}
+          value={value || ""}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 font-black text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+          placeholder="0"
+          className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-sm font-bold text-slate-200 focus:outline-none focus:border-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
       </div>
     </div>

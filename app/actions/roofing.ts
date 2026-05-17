@@ -6,12 +6,7 @@ export async function getRoofData(lat: number, lng: number) {
   const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat}&location.longitude=${lng}&requiredQuality=HIGH&key=${API_KEY}`;
 
   try {
-    const response = await fetch(url, {
-      headers: {
-        // Manually tell Google where this server request is "coming from"
-        Referer: "http://localhost:3000/",
-      },
-    });
+    const response = await fetch(url);
 
     if (!response.ok) {
       const errorText = await response.text();
