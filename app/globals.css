@@ -1,26 +1,38 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+	--background: #ffffff;
+	--foreground: #171717;
 }
+@media print {
+	body {
+		background-color: white !important;
+		color: black !important;
+	}
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+	/* Hide the Next.js dark grid background if you used it */
+	.bg-\[linear-gradient\] {
+		display: none !important;
+	}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+	/* Remove default browser margins and hide URLs */
+	@page {
+		margin: 1cm;
+		size: letter;
+	}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+	/* Ensure inputs look like flat text on the PDF */
+	input,
+	textarea {
+		border: none !important;
+		background: transparent !important;
+		resize: none !important;
+		padding: 0 !important;
+		color: black !important;
+	}
+
+	input::placeholder,
+	textarea::placeholder {
+		color: transparent !important;
+	}
 }
