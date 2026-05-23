@@ -3,9 +3,17 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Plus, FileText, Calendar, ArrowRight } from 'lucide-react';
+import CopilotHUD from '@/components/walkthrough/CopilotHUD';
 
-export default async function DashboardPage() {
+type PageProps = {
+	params: {
+		projectId: string;
+	};
+};
+
+export default async function DashboardPage({ params }: PageProps) {
 	const cookieStore = await cookies();
+	const projectId = params.projectId;
 
 	const supabase = createServerClient(
 		process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -60,6 +68,7 @@ export default async function DashboardPage() {
 						New Walkthrough
 					</Link>
 				</header>
+				<CopilotHUD projectId={projectId} />
 
 				{/* Projects Grid */}
 				{projects && projects.length > 0 ? (

@@ -10,16 +10,11 @@ import {
 	Tags,
 	Eye,
 } from 'lucide-react';
-import { analyzeJobsitePhoto } from '@/actions/analyzeJobsitePhoto';
+import {
+	analyzeJobsitePhoto,
+	type JobsitePhotoIntelligence,
+} from '@/actions/analyzeJobsitePhoto';
 import { saveProjectMemory } from '@/actions/saveMemory'; // Reusing your Phase 2 function!
-
-interface PhotoIntelligence {
-	room_classification: string;
-	materials_spotted: string[];
-	visible_issues: string[];
-	stage_of_completion: string;
-	search_tags: string[];
-}
 
 export default function SmartPhotoCapture({
 	projectId,
@@ -27,15 +22,13 @@ export default function SmartPhotoCapture({
 	projectId: string;
 }) {
 	const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-	const [intelligence, setIntelligence] = useState<PhotoIntelligence | null>(
-		null,
-	);
+	const [intelligence, setIntelligence] =
+		useState<JobsitePhotoIntelligence | null>(null);
 	const [status, setStatus] = useState<
 		'idle' | 'analyzing' | 'saving' | 'success' | 'error'
 	>('idle');
 
 	const fileInputRef = useRef<HTMLInputElement>(null);
-	const [rawFile, setRawFile] = useState<File | null>(null);
 
 	const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
@@ -43,7 +36,6 @@ export default function SmartPhotoCapture({
 
 		// Show preview instantly
 		setPhotoUrl(URL.createObjectURL(file));
-		setRawFile(file);
 		setStatus('analyzing');
 		setIntelligence(null);
 
@@ -53,7 +45,7 @@ export default function SmartPhotoCapture({
 
 		const result = await analyzeJobsitePhoto(formData);
 
-		if (result.success) {
+		if (result.success && result.data) {
 			setIntelligence(result.data);
 			setStatus('idle');
 		} else {

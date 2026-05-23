@@ -55,7 +55,7 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-slate-950 flex">
       {/* 1. FIXED DARK SIDEBAR */}
-      <aside className="w-64 bg-[#070a13] border-r border-slate-900 flex flex-col justify-between fixed top-0 bottom-0 left-0 z-30">
+      <aside className="hidden lg:flex w-64 bg-[#070a13] border-r border-slate-900 flex-col justify-between fixed top-0 bottom-0 left-0 z-30">
         {/* Top Branding Section */}
         <div className="p-6 space-y-8">
           <div className="flex items-center gap-3">
@@ -126,7 +126,7 @@ export default function DashboardLayout({
       </aside>
 
       {/* 2. DYNAMIC CONTENT INNER CONTAINER */}
-      <main className="flex-1 pl-64 bg-slate-950 min-h-screen">
+      <main className="flex-1 bg-slate-950 min-h-screen lg:pl-64">
         <div className="w-full h-full">{children}</div>
       </main>
     </div>

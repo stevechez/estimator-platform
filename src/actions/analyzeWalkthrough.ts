@@ -4,26 +4,60 @@ import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function analyzeWalkthroughChunk(transcriptChunk: string) {
+export interface WalkthroughAlert {
+	type:
+		| 'risk'
+		| 'missing_question'
+		| 'scope_dependency'
+		| 'margin_protection';
+	severity: 'low' | 'medium' | 'high';
+	message: string;
+	trade: string;
+	suggested_question?: string;
+}
+
+type AnalyzeWalkthroughResult =
+	| { success: true; alerts: WalkthroughAlert[] }
+	| { success: false; error: string };
+
+export async function analyzeWalkthroughChunk(
+	transcriptChunk: string,
+	tradeType = 'general remodel',
+): Promise<AnalyzeWalkthroughResult> {
 	try {
 		const chatResponse = await openai.chat.completions.create({
 			model: 'gpt-4o',
 			messages: [
 				{
 					role: 'system',
-					content: `You are a Senior Estimator acting as a real-time copilot during a construction walkthrough.
-          Read the latest snippet of conversation between the contractor and the homeowner.
-          Identify any hidden scope risks, missing questions, or margin-killers that the contractor needs to address BEFORE leaving the house.
-          
-          Only flag critical omissions (e.g., hidden damage, who pays for materials, permit risks, demolition haul-away).
-          If the chunk is just casual conversation or perfectly clear scope, return an empty array.
-          
-          You MUST respond in pure JSON matching this structure:
+					content: `You are BUILDRAIL's Live Walkthrough Copilot: a senior residential construction estimator riding along during a walkthrough.
+
+The current trade/context is: ${tradeType}.
+
+Listen for missing scope, hidden labor, unclear responsibility, homeowner decisions, sequencing dependencies, exclusions, and margin risks.
+Be contractor-native and practical. Surface only prompts that prevent a costly miss before the contractor leaves the site.
+Do not sound like a chatbot. Keep each prompt short enough to read on a phone.
+
+Trade-specific examples:
+- Kitchen: appliance responsibility, cabinet modifications, countertop templating, backsplash edges, plumbing/electrical moves, flooring transitions.
+- Bath: waterproofing method, valve access, tile substrate, glass lead times, venting, fixture responsibility.
+- Flooring: subfloor condition, transitions, baseboard handling, furniture moving, leveling, disposal.
+- Roofing: decking allowance, flashing, ventilation, gutters, permit, tear-off layers.
+- Painting: surface prep, texture matching, color approvals, protection, repairs, access.
+- Exterior: rot discovery, access, drainage, siding/trim tie-ins, weather windows.
+- Additions: permits, engineering, utilities, inspections, sequencing, temporary protection.
+
+If the chunk is casual, duplicate, or already operationally clear, return an empty alerts array.
+
+You MUST respond in pure JSON matching this structure:
           {
             "alerts": [
               {
-                "type": "risk" | "missing_question" | "upsell",
-                "message": "The short, punchy prompt to show the contractor."
+                "type": "risk" | "missing_question" | "scope_dependency" | "margin_protection",
+                "severity": "low" | "medium" | "high",
+                "trade": "The trade or scope area this applies to.",
+                "message": "The short, punchy prompt to show the contractor.",
+                "suggested_question": "Optional exact question the contractor can ask now."
               }
             ]
           }`,
@@ -39,7 +73,10 @@ export async function analyzeWalkthroughChunk(transcriptChunk: string) {
 		const parsedData = JSON.parse(
 			chatResponse.choices[0].message.content || '{}',
 		);
-		return { success: true, alerts: parsedData.alerts || [] };
+		return {
+			success: true,
+			alerts: (parsedData.alerts || []) as WalkthroughAlert[],
+		};
 	} catch (error) {
 		console.error('Copilot Analysis Failed:', error);
 		return { success: false, error: 'Failed to analyze chunk.' };

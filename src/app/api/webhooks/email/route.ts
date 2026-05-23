@@ -1,140 +1,197 @@
-import { NextResponse } from 'next/server';
-import { saveProjectMemory } from '@/actions/saveMemory';
-import { createAdminClient } from '@/lib/supabase/admin';
+// src/app/api/webhooks/email/route.ts
 
-const supabase = createAdminClient();
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { saveProjectMemory } from '@/actions/saveMemory';
+
+export const runtime = 'nodejs';
+
+const supabaseAdmin = createClient(
+	process.env.SUPABASE_URL!,
+	process.env.SUPABASE_SERVICE_ROLE_KEY!,
+	{
+		auth: {
+			persistSession: false,
+			autoRefreshToken: false,
+		},
+	},
+);
 
 const PROJECT_UUID_REGEX =
-	/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
+	/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
 
-function errorResponse(message: string, status: number) {
-	return NextResponse.json({ success: false, error: message }, { status });
+function normalizeEmail(value: string | null | undefined): string {
+	if (!value) return '';
+
+	// Handles: Steve <steve@example.com>
+	const match = value.match(/<([^>]+)>/);
+	return (match?.[1] ?? value).trim().toLowerCase();
 }
 
-function normalizeEmail(value: unknown) {
-	if (typeof value !== 'string') return null;
-
-	const match = value.match(/<([^<>@\s]+@[^<>@\s]+\.[^<>@\s]+)>/);
-	const email = (match?.[1] || value).trim().toLowerCase();
-
-	return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? email : null;
+function stripEmailTrail(body: string): string {
+	return body
+		.split(/\nOn .+ wrote:/i)[0]
+		.split(/\nFrom:/i)[0]
+		.trim();
 }
 
-function getProjectIdFromSubject(subject: string) {
-	const match = subject.match(PROJECT_UUID_REGEX);
-	return match?.[0].toLowerCase() || null;
-}
-
-function isDevWebhookAuthBypassEnabled() {
+function getWebhookSecret(req: NextRequest): string {
 	return (
-		process.env.NODE_ENV !== 'production' &&
-		process.env.BUILDRAIL_DEV_BYPASS_EMAIL_WEBHOOK_AUTH === 'true'
+		req.headers.get('x-buildrail-webhook-secret') ||
+		req.headers.get('x-webhook-secret') ||
+		''
 	);
 }
 
-async function isSenderAuthorizedForProject(
-	senderEmail: string,
-	projectUserId: string,
-) {
-	const { data, error } = await supabase.auth.admin.getUserById(projectUserId);
+function isAuthorizedSecret(req: NextRequest): boolean {
+	const expected = process.env.INBOUND_EMAIL_WEBHOOK_SECRET;
 
-	if (error) {
-		console.error('Email webhook owner lookup failed:', {
-			projectUserId,
-			error: error.message,
-		});
+	if (!expected) {
+		console.error('Missing INBOUND_EMAIL_WEBHOOK_SECRET');
 		return false;
 	}
 
-	const ownerEmail = normalizeEmail(data.user?.email);
-	return ownerEmail === senderEmail;
+	const received = getWebhookSecret(req);
+	return received === expected;
 }
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
 	try {
-		let payload: Record<string, unknown>;
-
-		try {
-			payload = await request.json();
-		} catch {
-			return errorResponse('Request body must be valid JSON.', 400);
+		if (!isAuthorizedSecret(req)) {
+			return NextResponse.json(
+				{ error: 'Unauthorized webhook request' },
+				{ status: 401 },
+			);
 		}
 
-		const senderEmail = normalizeEmail(payload.From);
-		const subject =
-			typeof payload.Subject === 'string' ? payload.Subject : 'No Subject';
-		const textBody = typeof payload.TextBody === 'string' ? payload.TextBody : '';
+		const payload = await req.json();
 
-		if (!senderEmail || !textBody) {
-			return errorResponse('Missing required email fields.', 400);
+		// Postmark commonly uses From, Subject, TextBody.
+		// SendGrid inbound parse commonly uses from, subject, text.
+		const rawFrom = payload.From ?? payload.from ?? '';
+		const subject = payload.Subject ?? payload.subject ?? '';
+		const rawBody =
+			payload.TextBody ??
+			payload.text ??
+			payload.HtmlBody ??
+			payload.html ??
+			'';
+
+		const senderEmail = normalizeEmail(rawFrom);
+		const projectId = subject.match(PROJECT_UUID_REGEX)?.[0];
+
+		if (!senderEmail) {
+			return NextResponse.json(
+				{ error: 'Missing sender email' },
+				{ status: 400 },
+			);
 		}
 
-		const targetProjectId = getProjectIdFromSubject(subject);
-
-		if (!targetProjectId) {
-			return errorResponse('Subject must include a valid project UUID.', 400);
+		if (!projectId) {
+			return NextResponse.json(
+				{ error: 'Missing project UUID in subject' },
+				{ status: 400 },
+			);
 		}
 
-		const { data: project, error: projectError } = await supabase
+		const cleanBody = stripEmailTrail(String(rawBody));
+
+		if (!cleanBody) {
+			return NextResponse.json(
+				{ error: 'Missing email body' },
+				{ status: 400 },
+			);
+		}
+
+		const { data: project, error: projectError } = await supabaseAdmin
 			.from('projects')
 			.select('id, user_id')
-			.eq('id', targetProjectId)
+			.eq('id', projectId)
 			.single();
 
 		if (projectError || !project) {
-			console.warn('Email webhook rejected unknown project:', {
-				projectId: targetProjectId,
-				error: projectError?.message,
-			});
-			return errorResponse('Project not found.', 404);
+			console.error('Project lookup failed:', projectError);
+
+			return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 		}
 
-		const bypassAuth = isDevWebhookAuthBypassEnabled();
-		const isAuthorized =
-			bypassAuth ||
-			(await isSenderAuthorizedForProject(senderEmail, project.user_id));
+		const { data: contractor, error: contractorError } = await supabaseAdmin
+			.from('contractors')
+			.select('id, tenant_id')
+			.eq('tenant_id', project.user_id)
+			.single();
 
-		if (!isAuthorized) {
-			console.warn('Email webhook rejected unauthorized sender:', {
-				projectId: targetProjectId,
+		if (contractorError || !contractor) {
+			console.error('Contractor lookup failed:', contractorError);
+
+			return NextResponse.json(
+				{ error: 'Contractor not found for project owner' },
+				{ status: 404 },
+			);
+		}
+
+		const { data: authorizedSender, error: senderError } = await supabaseAdmin
+			.from('contractor_inbound_senders')
+			.select('id')
+			.eq('contractor_id', contractor.id)
+			.eq('email', senderEmail)
+			.maybeSingle();
+
+		if (senderError) {
+			console.error('Authorized sender lookup failed:', senderError);
+
+			return NextResponse.json(
+				{ error: 'Failed to verify sender' },
+				{ status: 500 },
+			);
+		}
+
+		if (!authorizedSender) {
+			console.warn('Rejected inbound email authorization', {
+				projectId,
+				projectUserId: project.user_id,
+				contractorId: contractor.id,
 				senderEmail,
 			});
-			return errorResponse('Sender is not authorized for this project.', 403);
-		}
 
-		if (bypassAuth) {
-			console.warn('Email webhook dev auth bypass accepted request:', {
-				projectId: targetProjectId,
-				senderEmail,
-			});
-		}
-
-		const cleanedBody = textBody.split('On ')[0].trim();
-
-		if (!cleanedBody) {
-			return errorResponse('Email body is empty after cleanup.', 400);
+			return NextResponse.json(
+				{ error: 'Sender is not authorized for this project' },
+				{ status: 403 },
+			);
 		}
 
 		const saveResult = await saveProjectMemory({
-			projectId: targetProjectId,
-			content: `[Subject: ${subject}]\n\n${cleanedBody}`,
+			projectId,
+			content: cleanBody,
 			sourceType: 'email_forward',
 			metadata: {
-				original_sender: senderEmail,
-				is_forwarded: subject.toLowerCase().includes('fwd:'),
+				from: senderEmail,
+				subject,
+				received_via: 'email_webhook',
 			},
 		});
 
 		if (!saveResult.success) {
-			throw new Error('Failed to vectorize and store email memory.');
+			console.error('Failed to save project memory:', saveResult.error);
+
+			return NextResponse.json(
+				{ error: 'Failed to save memory' },
+				{ status: 500 },
+			);
 		}
 
-		return NextResponse.json(
-			{ success: true, memoryId: saveResult.memoryId },
-			{ status: 200 },
-		);
+		return NextResponse.json({
+			ok: true,
+			project_id: projectId,
+			source_type: 'email_forward',
+			memory_id: saveResult.memoryId,
+		});
 	} catch (error) {
-		console.error('Email Webhook Processing Error:', error);
-		return errorResponse('Internal Server Error', 500);
+		console.error('Inbound email webhook error:', error);
+
+		return NextResponse.json(
+			{ error: 'Invalid webhook request' },
+			{ status: 400 },
+		);
 	}
 }

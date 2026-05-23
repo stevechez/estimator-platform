@@ -4,7 +4,24 @@ import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function analyzeJobsitePhoto(formData: FormData) {
+export interface JobsitePhotoIntelligence {
+	room_classification: string;
+	materials_spotted: string[];
+	visible_issues: string[];
+	stage_of_completion: string;
+	scope_implications: string[];
+	estimate_links: string[];
+	search_tags: string[];
+	confidence: 'low' | 'medium' | 'high';
+}
+
+type AnalyzeJobsitePhotoResult =
+	| { success: true; data: JobsitePhotoIntelligence }
+	| { success: false; error: string };
+
+export async function analyzeJobsitePhoto(
+	formData: FormData,
+): Promise<AnalyzeJobsitePhotoResult> {
 	try {
 		const file = formData.get('photo') as File | null;
 
@@ -23,8 +40,9 @@ export async function analyzeJobsitePhoto(formData: FormData) {
 			messages: [
 				{
 					role: 'system',
-					content: `You are a Senior Construction Superintendent. Analyze this jobsite photo.
-          Your job is to extract structured intelligence from this image so it can be searched later.
+					content: `You are BUILDRAIL's Smart Photo Intelligence engine: a senior residential construction superintendent looking at a jobsite photo.
+          Extract practical construction intelligence that can help estimating, search, crew planning, change orders, and project memory.
+          Be specific when visible, cautious when uncertain, and never invent hidden conditions that are not visible.
           
           You MUST respond in pure JSON matching this exact structure:
           {
@@ -32,7 +50,10 @@ export async function analyzeJobsitePhoto(formData: FormData) {
             "materials_spotted": ["e.g., PEX piping", "Kerdi board", "Quartz"],
             "visible_issues": ["e.g., Water stain near baseboard", "Uncapped wires"],
             "stage_of_completion": "e.g., Rough framing, Drywall prep, Final finish",
-            "search_tags": ["e.g., plumbing", "shower", "leak risk"]
+            "scope_implications": ["e.g., Verify whether drywall patching is included"],
+            "estimate_links": ["e.g., plumbing", "drywall", "demo"],
+            "search_tags": ["e.g., plumbing", "shower", "leak risk"],
+            "confidence": "low" | "medium" | "high"
           }`,
 				},
 				{
@@ -58,7 +79,7 @@ export async function analyzeJobsitePhoto(formData: FormData) {
 			chatResponse.choices[0].message.content || '{}',
 		);
 
-		return { success: true, data: parsedData };
+		return { success: true, data: parsedData as JobsitePhotoIntelligence };
 	} catch (error) {
 		console.error('Photo Intelligence Failed:', error);
 		return { success: false, error: 'Failed to analyze photo.' };
