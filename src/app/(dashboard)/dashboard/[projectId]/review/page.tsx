@@ -8,9 +8,7 @@ export default async function ReviewPage({
 }: {
 	params: Promise<{ projectId: string }>;
 }) {
-	// Next.js 15 requires awaiting both params and cookies
-	const resolvedParams = await params;
-	const projectId = resolvedParams.projectId;
+	const { projectId } = await params;
 	const cookieStore = await cookies();
 
 	const supabase = createServerClient(
@@ -26,9 +24,8 @@ export default async function ReviewPage({
 						cookiesToSet.forEach(({ name, value, options }) => {
 							cookieStore.set(name, value, options);
 						});
-					} catch (error) {
-						// The setAll method was called from a Server Component.
-						// This can be ignored if you have middleware refreshing sessions.
+					} catch {
+						// Safe to ignore in Server Components if middleware handles refresh.
 					}
 				},
 			},
@@ -41,35 +38,39 @@ export default async function ReviewPage({
 
 	if (!user) redirect('/login');
 
-	// 1. Fetch the Project (This was missing!)
 	const { data: project } = await supabase
 		.from('projects')
 		.select('*')
 		.eq('id', projectId)
 		.single();
 
-	// 2. Fetch the Walkthrough Session
+	if (!project) {
+		return (
+			<div className="min-h-screen bg-[#0A0A0A] p-6 text-white">
+				Project not found.
+			</div>
+		);
+	}
+
 	const { data: session } = await supabase
 		.from('walkthrough_sessions')
 		.select('*')
 		.eq('project_id', projectId)
 		.single();
 
-	// 3. Fetch photos linked to this session
-	const { data: photos } = await supabase
-		.from('photos')
-		.select('*')
-		.eq('walkthrough_id', session?.id || '');
-
-	if (!project || !session) {
+	if (!session) {
 		return (
-			<div className="p-6 text-white bg-[#0A0A0A] min-h-screen">
-				Project or session not found.
+			<div className="min-h-screen bg-[#0A0A0A] p-6 text-white">
+				Walkthrough session not found.
 			</div>
 		);
 	}
 
-	// Pass project, session, and photos to the client
+	const { data: photos } = await supabase
+		.from('photos')
+		.select('*')
+		.eq('walkthrough_id', session.id);
+
 	return (
 		<ReviewClient project={project} session={session} photos={photos || []} />
 	);
