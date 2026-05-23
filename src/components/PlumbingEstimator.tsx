@@ -9,7 +9,7 @@ import {
 	Printer,
 	HelpCircle,
 } from 'lucide-react';
-import LeadCaptureSqueeze from '@/src/components/LeadCaptureSqueeze';
+import LeadCaptureSqueeze from '@/components/LeadCaptureSqueeze';
 
 interface EstimatorProps {
 	tenantId?: string;
@@ -57,7 +57,7 @@ export default function PlumbingEstimator({
 
 		// Calculate materials and setup labor allocations
 		const baseMaterials = targetBase * 0.4 * severityMultiplier;
-		let baseLabor =
+		const baseLabor =
 			targetBase * 0.6 * severityMultiplier + (fixtures - 1) * 250;
 
 		// Emergency call-out surcharge premium ($350 dispatch multiplier flat-fee)

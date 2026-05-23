@@ -10,7 +10,7 @@ import {
 	HelpCircle,
 	Flame,
 } from 'lucide-react';
-import LeadCaptureSqueeze from '@/src/components/LeadCaptureSqueeze';
+import LeadCaptureSqueeze from '@/components/LeadCaptureSqueeze';
 
 export default function HvacEstimator() {
 	const [loading, setLoading] = useState(false);
@@ -44,7 +44,7 @@ export default function HvacEstimator() {
 
 		// 2. Base Equipment & Labor Cost (Cupertino baseline metrics)
 		let baseEquipmentCost = calculatedTonnage * 2200;
-		let baseLaborCost = calculatedTonnage * 1200;
+		const baseLaborCost = calculatedTonnage * 1200;
 
 		// Surcharges for high-efficiency inverter units (Higher SEER = higher equipment cost)
 		if (newEff >= 18) baseEquipmentCost *= 1.45;

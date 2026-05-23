@@ -9,7 +9,7 @@ import {
 	Printer,
 	HelpCircle,
 } from 'lucide-react';
-import LeadCaptureSqueeze from '@/src/components/LeadCaptureSqueeze';
+import LeadCaptureSqueeze from '@/components/LeadCaptureSqueeze';
 
 export default function GcEstimator() {
 	const [loading, setLoading] = useState(false);

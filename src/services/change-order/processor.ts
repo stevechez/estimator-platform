@@ -57,7 +57,7 @@ export async function generateChangeOrderData({
 		});
 	}
 
-	const response = await openai.beta.chat.completions.parse({
+	const response = await openai.chat.completions.parse({
 		model: 'gpt-4o', // Vision + High Reasoning capability
 		messages: messages,
 		response_format: zodResponseFormat(ChangeOrderSchema, 'change_order'),

@@ -48,39 +48,6 @@ type CapturedPhoto = {
 	intelligence?: JobsitePhotoIntelligence;
 };
 
-type SpeechRecognitionResultLike = {
-	isFinal: boolean;
-	[index: number]: { transcript: string };
-};
-
-type SpeechRecognitionEventLike = {
-	resultIndex: number;
-	results: {
-		length: number;
-		[index: number]: SpeechRecognitionResultLike;
-	};
-};
-
-type SpeechRecognitionLike = {
-	continuous: boolean;
-	interimResults: boolean;
-	lang: string;
-	onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-	onerror: (() => void) | null;
-	onend: (() => void) | null;
-	start: () => void;
-	stop: () => void;
-};
-
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
-
-declare global {
-	interface Window {
-		SpeechRecognition?: SpeechRecognitionConstructor;
-		webkitSpeechRecognition?: SpeechRecognitionConstructor;
-	}
-}
-
 const tradeOptions = [
 	'General remodel',
 	'Kitchen',
@@ -142,7 +109,8 @@ export default function CaptureWalkthrough() {
 			kind: 'event',
 			time: 'Ready',
 			title: 'Walkthrough copilot standing by',
-			detail: 'Start recording, then speak naturally. Prompts appear only when there is scope risk.',
+			detail:
+				'Start recording, then speak naturally. Prompts appear only when there is scope risk.',
 		},
 	]);
 	const [isAnalyzingCopilot, setIsAnalyzingCopilot] = useState(false);
@@ -153,7 +121,7 @@ export default function CaptureWalkthrough() {
 
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-	const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
+	const speechRecognitionRef = useRef<SpeechRecognition | null>(null);
 	const audioChunksRef = useRef<BlobPart[]>([]);
 	const timerRef = useRef<NodeJS.Timeout | null>(null);
 	const analyzedTranscriptLengthRef = useRef(0);
@@ -196,18 +164,19 @@ export default function CaptureWalkthrough() {
 		analyzedTranscriptLengthRef.current = fullTranscript.length;
 		setIsAnalyzingCopilot(true);
 
-		const result = await analyzeWalkthroughChunk(nextChunk, tradeTypeRef.current);
+		const result = await analyzeWalkthroughChunk(
+			nextChunk,
+			tradeTypeRef.current,
+		);
 		const alerts = result.success ? result.alerts : [];
 
 		if (alerts.length > 0) {
-			const alertItems: CopilotFeedItem[] = alerts
-				.slice(0, 3)
-				.map(alert => ({
-					id: crypto.randomUUID(),
-					kind: 'alert',
-					time: nowLabel(),
-					alert,
-				}));
+			const alertItems: CopilotFeedItem[] = alerts.slice(0, 3).map(alert => ({
+				id: crypto.randomUUID(),
+				kind: 'alert',
+				time: nowLabel(),
+				alert,
+			}));
 
 			setCopilotFeed(prev => [...alertItems, ...prev]);
 		}
@@ -228,9 +197,13 @@ export default function CaptureWalkthrough() {
 		}
 
 		const recognition = new Recognition();
+
+		speechRecognitionRef.current = recognition;
+
 		recognition.continuous = true;
 		recognition.interimResults = true;
 		recognition.lang = 'en-US';
+
 		recognition.onresult = event => {
 			let finalText = '';
 			let interimText = '';
@@ -256,12 +229,14 @@ export default function CaptureWalkthrough() {
 
 			setInterimTranscript(interimText.trim());
 		};
+
 		recognition.onerror = () => {
 			addEvent(
 				'Live transcript paused',
 				'Speech recognition stopped responding. The audio recording is still safe.',
 			);
 		};
+
 		recognition.onend = () => {
 			if (isRecording) {
 				try {
@@ -271,8 +246,6 @@ export default function CaptureWalkthrough() {
 				}
 			}
 		};
-
-		speechRecognitionRef.current = recognition;
 
 		try {
 			recognition.start();
