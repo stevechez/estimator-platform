@@ -1,53 +1,120 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { saveProjectMemory } from '@/actions/saveMemory';
+import { createAdminClient } from '@/lib/supabase/admin';
 
-// Initialize Supabase with the Service Role key to bypass RLS securely on the backend
-const supabase = createClient(
-	process.env.NEXT_PUBLIC_SUPABASE_URL!,
-	process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+const supabase = createAdminClient();
+
+const PROJECT_UUID_REGEX =
+	/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
+
+function errorResponse(message: string, status: number) {
+	return NextResponse.json({ success: false, error: message }, { status });
+}
+
+function normalizeEmail(value: unknown) {
+	if (typeof value !== 'string') return null;
+
+	const match = value.match(/<([^<>@\s]+@[^<>@\s]+\.[^<>@\s]+)>/);
+	const email = (match?.[1] || value).trim().toLowerCase();
+
+	return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? email : null;
+}
+
+function getProjectIdFromSubject(subject: string) {
+	const match = subject.match(PROJECT_UUID_REGEX);
+	return match?.[0].toLowerCase() || null;
+}
+
+function isDevWebhookAuthBypassEnabled() {
+	return (
+		process.env.NODE_ENV !== 'production' &&
+		process.env.BUILDRAIL_DEV_BYPASS_EMAIL_WEBHOOK_AUTH === 'true'
+	);
+}
+
+async function isSenderAuthorizedForProject(
+	senderEmail: string,
+	projectUserId: string,
+) {
+	const { data, error } = await supabase.auth.admin.getUserById(projectUserId);
+
+	if (error) {
+		console.error('Email webhook owner lookup failed:', {
+			projectUserId,
+			error: error.message,
+		});
+		return false;
+	}
+
+	const ownerEmail = normalizeEmail(data.user?.email);
+	return ownerEmail === senderEmail;
+}
 
 export async function POST(request: Request) {
 	try {
-		const payload = await request.json();
+		let payload: Record<string, unknown>;
 
-		const senderEmail = payload.From;
-		const subject = payload.Subject || 'No Subject';
-		const textBody = payload.TextBody || '';
+		try {
+			payload = await request.json();
+		} catch {
+			return errorResponse('Request body must be valid JSON.', 400);
+		}
+
+		const senderEmail = normalizeEmail(payload.From);
+		const subject =
+			typeof payload.Subject === 'string' ? payload.Subject : 'No Subject';
+		const textBody = typeof payload.TextBody === 'string' ? payload.TextBody : '';
 
 		if (!senderEmail || !textBody) {
-			return NextResponse.json(
-				{ error: 'Missing required email fields.' },
-				{ status: 400 },
-			);
+			return errorResponse('Missing required email fields.', 400);
 		}
 
-		// --- SECURITY CHECK COMPLETELY DELETED FOR TESTING ---
+		const targetProjectId = getProjectIdFromSubject(subject);
 
-		// 3. Routing: Find the correct Project ID
-		let targetProjectId = '82702f3e-7fe4-471d-894f-ebb2b97a92c1';
-
-		// Simple Regex to extract a UUID from the subject line
-		const uuidRegex =
-			/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
-		const match = subject.match(uuidRegex);
-
-		if (match) {
-			targetProjectId = match[0];
+		if (!targetProjectId) {
+			return errorResponse('Subject must include a valid project UUID.', 400);
 		}
 
-		if (!targetProjectId || targetProjectId === 'PASTE-YOUR-COPIED-UUID-HERE') {
-			return NextResponse.json(
-				{ error: 'Please update the targetProjectId with a valid UUID.' },
-				{ status: 400 },
-			);
+		const { data: project, error: projectError } = await supabase
+			.from('projects')
+			.select('id, user_id')
+			.eq('id', targetProjectId)
+			.single();
+
+		if (projectError || !project) {
+			console.warn('Email webhook rejected unknown project:', {
+				projectId: targetProjectId,
+				error: projectError?.message,
+			});
+			return errorResponse('Project not found.', 404);
 		}
 
-		// 4. Clean the data
+		const bypassAuth = isDevWebhookAuthBypassEnabled();
+		const isAuthorized =
+			bypassAuth ||
+			(await isSenderAuthorizedForProject(senderEmail, project.user_id));
+
+		if (!isAuthorized) {
+			console.warn('Email webhook rejected unauthorized sender:', {
+				projectId: targetProjectId,
+				senderEmail,
+			});
+			return errorResponse('Sender is not authorized for this project.', 403);
+		}
+
+		if (bypassAuth) {
+			console.warn('Email webhook dev auth bypass accepted request:', {
+				projectId: targetProjectId,
+				senderEmail,
+			});
+		}
+
 		const cleanedBody = textBody.split('On ')[0].trim();
 
-		// 5. Pipe it into the AI Vector Database using your existing action
+		if (!cleanedBody) {
+			return errorResponse('Email body is empty after cleanup.', 400);
+		}
+
 		const saveResult = await saveProjectMemory({
 			projectId: targetProjectId,
 			content: `[Subject: ${subject}]\n\n${cleanedBody}`,
@@ -62,16 +129,12 @@ export async function POST(request: Request) {
 			throw new Error('Failed to vectorize and store email memory.');
 		}
 
-		// 6. Return a 200 OK
 		return NextResponse.json(
 			{ success: true, memoryId: saveResult.memoryId },
 			{ status: 200 },
 		);
-	} catch (error: any) {
+	} catch (error) {
 		console.error('Email Webhook Processing Error:', error);
-		return NextResponse.json(
-			{ error: error.message || 'Internal Server Error' },
-			{ status: 500 },
-		);
+		return errorResponse('Internal Server Error', 500);
 	}
 }

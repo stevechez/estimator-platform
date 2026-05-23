@@ -1,4 +1,4 @@
-import { createAdminClient } from './client';
+import { createAdminClient } from './admin';
 
 const supabase = createAdminClient();
 // Types matching your database schema
