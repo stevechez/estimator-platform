@@ -4,8 +4,17 @@ import { useState } from 'react';
 import { Printer, Save, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import SuggestedScopeBlocks from '@/components/scope/SuggestedScopeBlocks';
-import type { ScopeBlockMatch } from '@/actions/searchScopeBlocks';
+import {
+	searchScopeBlocks,
+	type ScopeBlockMatch,
+} from '@/actions/searchScopeBlocks';
 import { saveScopeBlock } from '@/actions/saveScopeBlock';
+
+type PendingScopeBlockSave = {
+	section: EstimateSection;
+	item: LineItem;
+	key: string;
+};
 
 type ToastMessage = {
 	type: 'success' | 'error';
@@ -67,6 +76,12 @@ export default function ReviewClient({
 	const [savingScopeBlockKey, setSavingScopeBlockKey] = useState<string | null>(
 		null,
 	);
+
+	const [pendingScopeBlockSave, setPendingScopeBlockSave] =
+		useState<PendingScopeBlockSave | null>(null);
+
+	const [duplicateScopeBlock, setDuplicateScopeBlock] =
+		useState<ScopeBlockMatch | null>(null);
 
 	const scopeMemoryQuery = [
 		project.project_type,
@@ -152,7 +167,23 @@ export default function ReviewClient({
 		});
 	};
 
-	const handleSaveLineItemAsScopeBlock = async (
+	const handleCancelDuplicateSave = () => {
+		setPendingScopeBlockSave(null);
+		setDuplicateScopeBlock(null);
+	};
+
+	const handleSaveDuplicateAnyway = async () => {
+		if (!pendingScopeBlockSave) return;
+
+		const { section, item, key } = pendingScopeBlockSave;
+
+		setPendingScopeBlockSave(null);
+		setDuplicateScopeBlock(null);
+
+		await saveLineItemAsScopeBlock(section, item, key);
+	};
+
+	const saveLineItemAsScopeBlock = async (
 		section: EstimateSection,
 		item: LineItem,
 		key: string,
@@ -195,6 +226,61 @@ export default function ReviewClient({
 		}
 	};
 
+	const handleSaveLineItemAsScopeBlock = async (
+		section: EstimateSection,
+		item: LineItem,
+		key: string,
+	) => {
+		const title = item.name.trim();
+		const body = item.notes.trim();
+
+		if (!title || !body) {
+			showToast(
+				'Add a title and notes before saving this as a scope block.',
+				'error',
+			);
+			return;
+		}
+
+		setSavingScopeBlockKey(key);
+
+		try {
+			const duplicateCheck = await searchScopeBlocks({
+				userId: project.user_id,
+				query: `${title}\n${body}`,
+				matchCount: 3,
+			});
+
+			if (!duplicateCheck.success) {
+				throw new Error(
+					duplicateCheck.error || 'Failed to check for duplicate scope blocks.',
+				);
+			}
+
+			const likelyDuplicate = duplicateCheck.scopeBlocks.find(block => {
+				const sameTitle =
+					block.title.trim().toLowerCase() === title.toLowerCase();
+
+				const verySimilar = Number(block.similarity) >= 0.92;
+
+				return sameTitle || verySimilar;
+			});
+
+			if (likelyDuplicate) {
+				setPendingScopeBlockSave({ section, item, key });
+				setDuplicateScopeBlock(likelyDuplicate);
+				return;
+			}
+
+			await saveLineItemAsScopeBlock(section, item, key);
+		} catch (error) {
+			console.error('Duplicate check failed:', error);
+			showToast('Failed to check for duplicate scope blocks.', 'error');
+		} finally {
+			setSavingScopeBlockKey(null);
+		}
+	};
+
 	const handleExportPDF = () => {
 		window.print();
 	};
@@ -230,6 +316,60 @@ export default function ReviewClient({
 
 	return (
 		<div className="min-h-screen bg-[#0A0A0A] pb-24 text-slate-100 antialiased">
+			{duplicateScopeBlock && pendingScopeBlockSave && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm print:hidden">
+					<div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl">
+						<div className="mb-4">
+							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
+								Possible duplicate
+							</p>
+
+							<h2 className="mt-2 text-xl font-semibold text-white">
+								This looks like an existing scope block.
+							</h2>
+
+							<p className="mt-2 text-sm leading-6 text-slate-400">
+								BUILDRAIL found a similar reusable block already saved. You can
+								cancel, or save this edited version anyway.
+							</p>
+						</div>
+
+						<div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+							<div className="mb-2 flex items-start justify-between gap-3">
+								<h3 className="text-sm font-semibold text-white">
+									{duplicateScopeBlock.title}
+								</h3>
+
+								<span className="shrink-0 rounded-full bg-white/[0.08] px-2 py-1 text-[11px] text-slate-400">
+									{Number(duplicateScopeBlock.similarity).toFixed(2)}
+								</span>
+							</div>
+
+							<p className="max-h-40 overflow-y-auto text-sm leading-6 text-slate-300">
+								{duplicateScopeBlock.body}
+							</p>
+						</div>
+
+						<div className="mt-6 flex justify-end gap-2">
+							<button
+								type="button"
+								onClick={handleCancelDuplicateSave}
+								className="rounded-lg border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.1]"
+							>
+								Cancel
+							</button>
+
+							<button
+								type="button"
+								onClick={handleSaveDuplicateAnyway}
+								className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400"
+							>
+								Save Anyway
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 			{toast && (
 				<div className="fixed left-1/2 top-6 z-50 -translate-x-1/2 print:hidden">
 					<div

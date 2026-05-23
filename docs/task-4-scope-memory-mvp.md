@@ -2,56 +2,44 @@
 
 ## Status
 
-Implemented and in active testing.
+Complete.
 
 ## Goal
 
-Create contractor-specific reusable scope memory so BUILDRAIL can suggest prior scope language during proposal drafting.
+Create a contractor-specific scope memory system that helps BUILDRAIL suggest reusable proposal language during estimate review.
 
-## Final Architecture
+The goal is not to make BUILDRAIL an AI pricing engine.
 
-1. Reusable scope language is stored in `scope_blocks`.
-2. Each scope block has:
-   - title
-   - body
-   - project type
-   - trade
-   - room
-   - tags
-   - source project
-   - embedding
-   - usage count
-3. `saveScopeBlock` generates an embedding using `text-embedding-3-small`.
-4. `searchScopeBlocks` performs vector search through the `match_scope_blocks` RPC.
-5. `SuggestedScopeBlocks` displays relevant reusable scope blocks in the proposal review flow.
-6. Contractors can copy or insert suggested language.
-7. Inserted scope blocks become editable proposal line items.
-8. Proposal line items can be saved back as reusable scope blocks.
+The goal is:
 
-## Database Objects
+> BUILDRAIL remembers how the contractor writes and structures scope.
 
-- `scope_blocks`
-- `match_scope_blocks`
-- `increment_scope_block_usage`
+## Why This Matters
 
-## Product Positioning
+Contractors reuse similar scope language across jobs:
 
-This is not AI pricing.
+- shower valve relocation
+- waterproofing prep
+- hidden condition exclusions
+- plumbing rough-in notes
+- tile preparation
+- homeowner approval language
+- allowance language
+- scope clarifications
 
-This is contractor-specific organizational memory:
+Before this task, BUILDRAIL could generate and store project memory, but it did not have a dedicated reusable scope library.
 
-> BUILDRAIL remembers how you write and structure scopes.
+Task 4 adds that reusable layer.
 
-## MVP Behavior
+## Final Workflow
 
-- Suggestions appear in the review/proposal page.
-- Insert adds a new editable line item.
-- Save persists the updated estimate draft.
-- Save as Scope Block turns edited proposal language into reusable future memory.
-
-## Next Improvements
-
-- Avoid duplicate scope blocks.
-- Add edit/delete management for saved blocks.
-- Improve tags and trade classification.
-- Add hybrid retrieval using project memory plus scope memory.
+```text
+Proposal review page
+→ Suggested Scope Blocks panel
+→ Insert reusable scope language
+→ Edit inserted line item
+→ Save proposal draft
+→ Reload and preserve edits
+→ Save edited line item as reusable scope block
+→ Use improved language in future proposals
+```
