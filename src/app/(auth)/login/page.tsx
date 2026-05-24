@@ -12,9 +12,10 @@ import {
 export default async function LoginPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ message?: string; type?: string }>;
+	searchParams: Promise<{ message?: string; type?: string; email?: string }>;
 }) {
 	const resolvedSearchParams = await searchParams;
+	const prefilledEmail = resolvedSearchParams?.email ?? '';
 
 	const signIn = async (formData: FormData) => {
 		'use server';
@@ -114,6 +115,7 @@ export default async function LoginPage({
 							<input
 								name="email"
 								type="email"
+								defaultValue={prefilledEmail}
 								placeholder="name@company.com"
 								required
 								className="w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-base text-white placeholder:text-slate-600 transition-all focus:border-blue-400/50 focus:bg-white/[0.07] focus:outline-none focus:ring-4 focus:ring-blue-500/10"

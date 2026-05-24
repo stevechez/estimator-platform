@@ -110,7 +110,7 @@ No spam. No sold lists. No surprise calls. We do not sell your contact informati
 			});
 		}
 
-		return NextResponse.json({ success: true });
+		return NextResponse.json({ success: true, email });
 	} catch (error) {
 		console.error('Field trial request error:', error);
 

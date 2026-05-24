@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 
 type FormStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -8,6 +9,7 @@ type FormStatus = 'idle' | 'loading' | 'success' | 'error';
 export function WaitlistForm() {
 	const [status, setStatus] = useState<FormStatus>('idle');
 	const [errorMessage, setErrorMessage] = useState('');
+	const [submittedEmail, setSubmittedEmail] = useState('');
 
 	const [form, setForm] = useState({
 		name: '',
@@ -26,6 +28,7 @@ export function WaitlistForm() {
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+
 		setStatus('loading');
 		setErrorMessage('');
 
@@ -42,6 +45,7 @@ export function WaitlistForm() {
 				throw new Error(data.error || 'Something went wrong');
 			}
 
+			setSubmittedEmail(data.email || form.email);
 			setStatus('success');
 		} catch (error: unknown) {
 			setStatus('error');
@@ -52,6 +56,10 @@ export function WaitlistForm() {
 	};
 
 	if (status === 'success') {
+		const loginHref = submittedEmail
+			? `/login?email=${encodeURIComponent(submittedEmail)}`
+			: '/login';
+
 		return (
 			<div className="rounded-3xl border border-emerald-400/25 bg-gradient-to-br from-emerald-400/[0.12] via-emerald-300/[0.06] to-amber-300/[0.06] p-5 text-left shadow-2xl shadow-emerald-950/20 sm:p-6">
 				<div className="flex items-start gap-3">
@@ -59,15 +67,34 @@ export function WaitlistForm() {
 						<CheckCircle2 className="h-5 w-5" />
 					</div>
 
-					<div className="min-w-0">
+					<div className="min-w-0 flex-1">
 						<p className="text-lg font-black leading-6 text-emerald-100">
 							Trial request received.
 						</p>
 
 						<p className="mt-2 text-sm leading-6 text-emerald-100/75 sm:text-base sm:leading-7">
-							Thanks — we’ll review your request and activate field trial
-							workspaces manually while BUILDRAIL is in private beta.
+							We’ll review your request and activate your field trial workspace
+							manually while BUILDRAIL is in private beta.
 						</p>
+
+						<div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+							<p className="text-sm font-bold leading-6 text-white">
+								Want to preview your workspace now?
+							</p>
+
+							<p className="mt-1 text-sm leading-6 text-slate-400">
+								Use the same email to request a secure magic link. Some trial
+								features may stay limited until your workspace is activated.
+							</p>
+
+							<Link
+								href={loginHref}
+								className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3.5 text-sm font-black text-black transition hover:bg-slate-200 active:scale-[0.99]"
+							>
+								Sign In With This Email
+								<ArrowRight className="h-4 w-4" />
+							</Link>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -83,7 +110,7 @@ export function WaitlistForm() {
 				placeholder="Your name"
 				required
 				disabled={status === 'loading'}
-				className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:opacity-50"
+				className="w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-base text-white placeholder:text-slate-500 outline-none transition focus:border-amber-300/40 focus:ring-4 focus:ring-amber-300/10 disabled:opacity-50"
 			/>
 
 			<input
@@ -93,7 +120,7 @@ export function WaitlistForm() {
 				placeholder="Email address"
 				required
 				disabled={status === 'loading'}
-				className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:opacity-50"
+				className="w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-base text-white placeholder:text-slate-500 outline-none transition focus:border-amber-300/40 focus:ring-4 focus:ring-amber-300/10 disabled:opacity-50"
 			/>
 
 			<input
@@ -102,7 +129,7 @@ export function WaitlistForm() {
 				onChange={e => updateField('company', e.target.value)}
 				placeholder="Company name"
 				disabled={status === 'loading'}
-				className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:opacity-50"
+				className="w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-base text-white placeholder:text-slate-500 outline-none transition focus:border-amber-300/40 focus:ring-4 focus:ring-amber-300/10 disabled:opacity-50"
 			/>
 
 			<input
@@ -111,7 +138,7 @@ export function WaitlistForm() {
 				onChange={e => updateField('trade', e.target.value)}
 				placeholder="Primary work: remodels, kitchen/bath, GC, roofing..."
 				disabled={status === 'loading'}
-				className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:opacity-50"
+				className="w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-base text-white placeholder:text-slate-500 outline-none transition focus:border-amber-300/40 focus:ring-4 focus:ring-amber-300/10 disabled:opacity-50"
 			/>
 
 			<textarea
@@ -120,22 +147,25 @@ export function WaitlistForm() {
 				placeholder="What usually breaks down after a walkthrough?"
 				rows={4}
 				disabled={status === 'loading'}
-				className="w-full resize-y rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:opacity-50"
+				className="min-h-28 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-base text-white placeholder:text-slate-500 outline-none transition focus:border-amber-300/40 focus:ring-4 focus:ring-amber-300/10 disabled:opacity-50"
 			/>
 
 			<button
 				type="submit"
 				disabled={status === 'loading'}
-				className="group inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 font-bold text-black transition-all duration-200 hover:bg-slate-200 disabled:opacity-70"
+				className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 text-base font-black text-black transition hover:bg-slate-200 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
 			>
 				{status === 'loading' ? 'Submitting...' : 'Request My Field Trial'}
+
 				{status !== 'loading' && (
 					<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
 				)}
 			</button>
 
 			{status === 'error' && (
-				<p className="text-center text-sm text-red-400">{errorMessage}</p>
+				<div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-center text-sm leading-6 text-red-200">
+					{errorMessage}
+				</div>
 			)}
 		</form>
 	);
