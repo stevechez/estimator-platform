@@ -306,6 +306,8 @@ export default function ReviewClient({
 			if (!response.ok) {
 				throw new Error(data.error || 'Failed to save');
 			}
+
+			showToast('Proposal edits saved.');
 		} catch (error) {
 			console.error('Save error:', error);
 			showToast('Failed to save your edits. Please try again.', 'error');
@@ -316,6 +318,25 @@ export default function ReviewClient({
 
 	return (
 		<div className="min-h-screen bg-[#0A0A0A] pb-24 text-slate-100 antialiased">
+			<style jsx global>{`
+				@media print {
+					@page {
+						size: letter;
+						margin: 0.6in;
+					}
+
+					html,
+					body {
+						background: white !important;
+					}
+
+					input,
+					textarea,
+					button {
+						box-shadow: none !important;
+					}
+				}
+			`}</style>
 			{duplicateScopeBlock && pendingScopeBlockSave && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm print:hidden">
 					<div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl">
@@ -455,8 +476,12 @@ export default function ReviewClient({
 						<textarea
 							value={summary}
 							onChange={e => setSummary(e.target.value)}
-							className="min-h-[100px] w-full resize-y rounded-xl border border-white/5 bg-[#111] p-4 text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 print:border-none print:bg-transparent print:text-black"
+							className="min-h-[100px] w-full resize-y rounded-xl border border-white/5 bg-[#111] p-4 text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 print:hidden"
 						/>
+
+						<div className="hidden whitespace-pre-wrap text-base leading-7 text-black print:block">
+							{summary || 'Project summary not provided.'}
+						</div>
 					</div>
 
 					<div className="space-y-8">
@@ -467,7 +492,7 @@ export default function ReviewClient({
 						{estimateDraft.map((section, sIdx) => (
 							<div
 								key={`${section.section}-${sIdx}`}
-								className="overflow-hidden rounded-xl border border-white/5 bg-white/[0.02] print:border-black/10 print:bg-transparent"
+								className="overflow-hidden rounded-xl border border-white/5 bg-white/[0.02] print:break-inside-avoid print:border-black/10 print:bg-transparent"
 							>
 								<div className="border-b border-white/5 bg-white/[0.02] px-4 py-3 print:border-black/10 print:bg-slate-100">
 									<h4 className="font-medium text-blue-400 print:text-black">
@@ -480,100 +505,131 @@ export default function ReviewClient({
 										const itemKey = `${sIdx}-${iIdx}`;
 
 										return (
-											<div
-												key={itemKey}
-												className="grid grid-cols-12 items-start gap-4 p-4"
-											>
-												<div className="col-span-12 space-y-2 sm:col-span-7">
-													<input
-														value={item.name}
-														onChange={e =>
-															handleItemChange(
-																sIdx,
-																iIdx,
-																'name',
-																e.target.value,
-															)
-														}
-														className="w-full bg-transparent font-medium text-slate-200 focus:outline-none focus:border-b focus:border-blue-500/50 print:text-black"
-														placeholder="Item name..."
-													/>
-
-													<textarea
-														value={item.notes}
-														onChange={e =>
-															handleItemChange(
-																sIdx,
-																iIdx,
-																'notes',
-																e.target.value,
-															)
-														}
-														className="min-h-[72px] w-full resize-y bg-transparent text-sm leading-6 text-slate-500 focus:outline-none focus:border-b focus:border-blue-500/50 print:text-slate-600"
-														placeholder="Additional details..."
-													/>
-
-													<button
-														type="button"
-														onClick={() =>
-															handleSaveLineItemAsScopeBlock(
-																section,
-																item,
-																itemKey,
-															)
-														}
-														disabled={savingScopeBlockKey === itemKey}
-														className="mt-2 rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/[0.1] disabled:opacity-50 print:hidden"
-													>
-														{savingScopeBlockKey === itemKey
-															? 'Saving...'
-															: 'Save as Scope Block'}
-													</button>
-												</div>
-
-												<div className="col-span-6 sm:col-span-2">
-													<label className="mb-1 block text-xs text-slate-600 print:hidden">
-														Qty / Unit
-													</label>
-
-													<input
-														value={item.quantity}
-														onChange={e =>
-															handleItemChange(
-																sIdx,
-																iIdx,
-																'quantity',
-																e.target.value,
-															)
-														}
-														className="w-full bg-transparent text-slate-300 focus:outline-none focus:border-b focus:border-blue-500/50 print:text-black"
-														placeholder="1"
-													/>
-												</div>
-
-												<div className="col-span-6 sm:col-span-3">
-													<label className="mb-1 block text-xs text-slate-600 print:hidden">
-														Estimated Cost
-													</label>
-
-													<div className="relative">
-														<span className="absolute left-0 top-0 text-slate-500">
-															$
-														</span>
-
+											<div key={itemKey} className="print:break-inside-avoid">
+												{/* Editable screen version */}
+												<div className="grid grid-cols-12 items-start gap-4 p-4 print:hidden">
+													<div className="col-span-12 space-y-2 sm:col-span-7">
 														<input
-															value={item.price || ''}
+															value={item.name}
 															onChange={e =>
 																handleItemChange(
 																	sIdx,
 																	iIdx,
-																	'price',
+																	'name',
 																	e.target.value,
 																)
 															}
-															className="w-full bg-transparent pl-4 text-slate-200 focus:outline-none focus:border-b focus:border-blue-500/50 print:text-black"
-															placeholder="0.00"
+															className="w-full bg-transparent font-medium text-slate-200 focus:border-b focus:border-blue-500/50 focus:outline-none"
+															placeholder="Item name..."
 														/>
+
+														<textarea
+															value={item.notes}
+															onChange={e =>
+																handleItemChange(
+																	sIdx,
+																	iIdx,
+																	'notes',
+																	e.target.value,
+																)
+															}
+															className="min-h-[72px] w-full resize-y bg-transparent text-sm leading-6 text-slate-500 focus:border-b focus:border-blue-500/50 focus:outline-none"
+															placeholder="Additional details..."
+														/>
+
+														<button
+															type="button"
+															onClick={() =>
+																handleSaveLineItemAsScopeBlock(
+																	section,
+																	item,
+																	itemKey,
+																)
+															}
+															disabled={savingScopeBlockKey === itemKey}
+															className="mt-2 rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/[0.1] disabled:opacity-50"
+														>
+															{savingScopeBlockKey === itemKey
+																? 'Saving...'
+																: 'Save as Scope Block'}
+														</button>
+													</div>
+
+													<div className="col-span-6 sm:col-span-2">
+														<label className="mb-1 block text-xs text-slate-600">
+															Qty / Unit
+														</label>
+
+														<input
+															value={item.quantity}
+															onChange={e =>
+																handleItemChange(
+																	sIdx,
+																	iIdx,
+																	'quantity',
+																	e.target.value,
+																)
+															}
+															className="w-full bg-transparent text-slate-300 focus:border-b focus:border-blue-500/50 focus:outline-none"
+															placeholder="1"
+														/>
+													</div>
+
+													<div className="col-span-6 sm:col-span-3">
+														<label className="mb-1 block text-xs text-slate-600">
+															Estimated Cost
+														</label>
+
+														<div className="relative">
+															<span className="absolute left-0 top-0 text-slate-500">
+																$
+															</span>
+
+															<input
+																value={item.price || ''}
+																onChange={e =>
+																	handleItemChange(
+																		sIdx,
+																		iIdx,
+																		'price',
+																		e.target.value,
+																	)
+																}
+																className="w-full bg-transparent pl-4 text-slate-200 focus:border-b focus:border-blue-500/50 focus:outline-none"
+																placeholder="0.00"
+															/>
+														</div>
+													</div>
+												</div>
+
+												{/* Static print/PDF version */}
+												<div className="hidden grid-cols-12 gap-4 p-4 text-black print:grid">
+													<div className="col-span-7">
+														<p className="font-medium">
+															{item.name || 'Untitled item'}
+														</p>
+
+														<p className="mt-2 text-sm leading-6 text-slate-700">
+															{item.notes || 'No additional notes.'}
+														</p>
+													</div>
+
+													<div className="col-span-2">
+														<p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+															Qty / Unit
+														</p>
+
+														<p className="mt-2">{item.quantity || '1'}</p>
+													</div>
+
+													<div className="col-span-3 text-right">
+														<p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+															Estimated Cost
+														</p>
+
+														<p className="mt-2">
+															{item.price ? `$${item.price}` : 'TBD'}
+														</p>
 													</div>
 												</div>
 											</div>

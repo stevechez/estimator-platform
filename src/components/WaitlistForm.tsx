@@ -1,14 +1,28 @@
-'use client'; // Add this to the top of your file if you extract the form to a component
+'use client';
 
 import { useState } from 'react';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 
+type FormStatus = 'idle' | 'loading' | 'success' | 'error';
+
 export function WaitlistForm() {
-	const [email, setEmail] = useState('');
-	const [status, setStatus] = useState<
-		'idle' | 'loading' | 'success' | 'error'
-	>('idle');
+	const [status, setStatus] = useState<FormStatus>('idle');
 	const [errorMessage, setErrorMessage] = useState('');
+
+	const [form, setForm] = useState({
+		name: '',
+		email: '',
+		company: '',
+		trade: '',
+		biggestFollowupProblem: '',
+	});
+
+	const updateField = (field: keyof typeof form, value: string) => {
+		setForm(current => ({
+			...current,
+			[field]: value,
+		}));
+	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -19,7 +33,7 @@ export function WaitlistForm() {
 			const res = await fetch('/api/waitlist', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email }),
+				body: JSON.stringify(form),
 			});
 
 			const data = await res.json();
@@ -39,44 +53,89 @@ export function WaitlistForm() {
 
 	if (status === 'success') {
 		return (
-			<div className="flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-				<CheckCircle2 className="w-5 h-5" />
-				<span className="font-medium">
-					You&rsquo;re on the list. Check your email!
-				</span>
+			<div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 text-emerald-100">
+				<div className="flex items-start gap-3">
+					<CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+					<div>
+						<p className="font-bold">Trial request received.</p>
+						<p className="mt-2 text-sm leading-6 text-emerald-100/75">
+							Thanks — we’ll review your request and activate field trial
+							workspaces manually while BUILDRAIL is in private beta.
+						</p>
+					</div>
+				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="max-w-md mx-auto">
-			<form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
-				<input
-					type="email"
-					value={email}
-					onChange={e => setEmail(e.target.value)}
-					placeholder="Enter your email address"
-					required
-					disabled={status === 'loading'}
-					className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all disabled:opacity-50"
-				/>
-				<button
-					type="submit"
-					disabled={status === 'loading'}
-					className="group inline-flex items-center justify-center gap-2 bg-white text-black hover:bg-slate-200 px-6 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer whitespace-nowrap disabled:opacity-70"
-				>
-					{status === 'loading' ? 'Joining...' : 'Join Waitlist'}
-					{status !== 'loading' && (
-						<ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-					)}
-				</button>
-			</form>
+		<form onSubmit={handleSubmit} className="space-y-3">
+			<input
+				type="text"
+				value={form.name}
+				onChange={e => updateField('name', e.target.value)}
+				placeholder="Your name"
+				required
+				disabled={status === 'loading'}
+				className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:opacity-50"
+			/>
+
+			<input
+				type="email"
+				value={form.email}
+				onChange={e => updateField('email', e.target.value)}
+				placeholder="Email address"
+				required
+				disabled={status === 'loading'}
+				className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:opacity-50"
+			/>
+
+			<input
+				type="text"
+				value={form.company}
+				onChange={e => updateField('company', e.target.value)}
+				placeholder="Company name"
+				disabled={status === 'loading'}
+				className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:opacity-50"
+			/>
+
+			<input
+				type="text"
+				value={form.trade}
+				onChange={e => updateField('trade', e.target.value)}
+				placeholder="Primary work: remodels, kitchen/bath, GC, roofing..."
+				disabled={status === 'loading'}
+				className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:opacity-50"
+			/>
+
+			<textarea
+				value={form.biggestFollowupProblem}
+				onChange={e => updateField('biggestFollowupProblem', e.target.value)}
+				placeholder="What usually breaks down after a walkthrough?"
+				rows={4}
+				disabled={status === 'loading'}
+				className="w-full resize-y rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:opacity-50"
+			/>
+
+			<button
+				type="submit"
+				disabled={status === 'loading'}
+				className="group inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 font-bold text-black transition-all duration-200 hover:bg-slate-200 disabled:opacity-70"
+			>
+				{status === 'loading' ? 'Submitting...' : 'Start 7-Day Field Trial'}
+				{status !== 'loading' && (
+					<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+				)}
+			</button>
+
 			{status === 'error' && (
-				<p className="text-red-400 text-sm mt-3 text-center">{errorMessage}</p>
+				<p className="text-center text-sm text-red-400">{errorMessage}</p>
 			)}
-			<p className="text-xs text-slate-500 mt-3 text-center">
-				Limited early access opening soon for residential contractors.
+
+			<p className="text-center text-xs leading-5 text-slate-500">
+				Private beta. Trial workspaces are activated manually during our
+				reliability sprint.
 			</p>
-		</div>
+		</form>
 	);
 }

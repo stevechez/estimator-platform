@@ -2,55 +2,120 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
-// Initialize clients
 const supabase = createClient(
 	process.env.NEXT_PUBLIC_SUPABASE_URL!,
 	process.env.SUPABASE_SERVICE_ROLE_KEY!,
+	{
+		auth: {
+			persistSession: false,
+			autoRefreshToken: false,
+		},
+	},
 );
-const resend = new Resend(process.env.RESEND_API_KEY!);
+
+const resend = process.env.RESEND_API_KEY
+	? new Resend(process.env.RESEND_API_KEY)
+	: null;
+
+type TrialRequestPayload = {
+	name?: string;
+	email?: string;
+	company?: string;
+	trade?: string;
+	biggestFollowupProblem?: string;
+};
+
+function normalizeEmail(email: string) {
+	return email.trim().toLowerCase();
+}
 
 export async function POST(req: Request) {
 	try {
-		const { email } = await req.json();
+		const payload = (await req.json()) as TrialRequestPayload;
 
-		if (!email) {
-			return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+		const name = payload.name?.trim() ?? '';
+		const email = payload.email ? normalizeEmail(payload.email) : '';
+		const company = payload.company?.trim() ?? '';
+		const trade = payload.trade?.trim() ?? '';
+		const biggestFollowupProblem = payload.biggestFollowupProblem?.trim() ?? '';
+
+		if (!name) {
+			return NextResponse.json({ error: 'Name is required.' }, { status: 400 });
 		}
 
-		// 1. Insert into Supabase Waitlist Table
-		const { error: dbError } = await supabase
-			.from('waitlist')
-			.insert([{ email }]);
+		if (!email) {
+			return NextResponse.json(
+				{ error: 'Email is required.' },
+				{ status: 400 },
+			);
+		}
+
+		const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+		if (!emailPattern.test(email)) {
+			return NextResponse.json(
+				{ error: 'Enter a valid email address.' },
+				{ status: 400 },
+			);
+		}
+
+		const { error: dbError } = await supabase.from('waitlist').insert([
+			{
+				name,
+				email,
+				company,
+				trade,
+				biggest_followup_problem: biggestFollowupProblem,
+				source: '7_day_field_trial',
+				status: 'new',
+			},
+		]);
 
 		if (dbError) {
-			// Handle duplicate email signups gracefully
 			if (dbError.code === '23505') {
 				return NextResponse.json(
-					{ error: 'Email already registered' },
-					{ status: 400 },
+					{
+						error:
+							'This email is already registered for the BUILDRAIL field trial.',
+					},
+					{ status: 409 },
 				);
 			}
+
 			throw dbError;
 		}
 
-		// 2. Send the Plain-Text Welcome Email via Resend
-		const { error: emailError } = await resend.emails.send({
-			from: 'BUILDRAIL <founders@yourdomain.com>', // Update with your verified Resend domain
-			to: email,
-			subject: 'Quick question about your walkthroughs',
-			text: `Hey,\n\nThanks for joining the BUILDRAIL early access list. I'm building this to help contractors stop rewriting notes at night.\n\nOut of curiosity, what type of projects are you mostly walking right now? Kitchens, baths, or full guts?\n\nReply and let me know—I'm letting people off the waitlist based on project fit.\n\nCheers,\nYour Name`,
-		});
+		if (resend) {
+			const fromEmail =
+				process.env.RESEND_FROM_EMAIL || 'BUILDRAIL <founders@buildrail.app>';
 
-		if (emailError) {
-			console.error('Resend Error:', emailError);
-			// We still return success to the user since they were added to the DB
+			void Promise.race([
+				resend.emails.send({
+					from: fromEmail,
+					to: email,
+					subject: 'BUILDRAIL field trial request received',
+					text: `Hey ${name},
+
+Thanks for requesting a BUILDRAIL 7-Day Field Trial.
+
+We are currently activating trial workspaces manually while we finish the final reliability pass.
+
+No spam. No sold lists. No surprise calls. We do not sell your contact information. Ever.
+
+— BUILDRAIL`,
+				}),
+				new Promise(resolve => setTimeout(resolve, 1500)),
+			]).catch(emailError => {
+				console.error('Resend error:', emailError);
+			});
 		}
 
 		return NextResponse.json({ success: true });
 	} catch (error) {
-		console.error('Waitlist error:', error);
+		console.error('Field trial request error:', error);
+
 		return NextResponse.json(
-			{ error: 'Internal server error' },
+			{ error: 'Could not submit trial request. Please try again.' },
 			{ status: 500 },
 		);
 	}

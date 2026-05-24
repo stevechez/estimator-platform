@@ -301,7 +301,7 @@ export default function CaptureWalkthrough() {
 			setIsRecording(false);
 			setInterimTranscript('');
 			addEvent(
-				'Recording saved',
+				'Recording saved — ready to create review draft',
 				'Review the copilot prompts before generating the estimate draft.',
 			);
 			if (timerRef.current) clearInterval(timerRef.current);
@@ -344,7 +344,12 @@ export default function CaptureWalkthrough() {
 				body: formData,
 			});
 
-			if (!response.ok) throw new Error('Processing failed');
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data.error || 'Processing failed');
+			}
+
 			router.push(`/dashboard/${projectId}/review`);
 		} catch (error) {
 			console.error('Upload error:', error);
@@ -558,7 +563,7 @@ Search tags: ${intelligence.search_tags.join(', ') || 'None detected'}`,
 										className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-4 font-medium text-black"
 									>
 										<UploadCloud className="h-5 w-5" />
-										Process Walkthrough
+										Capture Review Draft
 									</button>
 									<button
 										onClick={() => {
@@ -603,7 +608,6 @@ Search tags: ${intelligence.search_tags.join(', ') || 'None detected'}`,
 						<input
 							type="file"
 							accept="image/*"
-							capture="environment"
 							ref={fileInputRef}
 							className="hidden"
 							onChange={handlePhotoUpload}

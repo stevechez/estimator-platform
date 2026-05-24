@@ -2,18 +2,27 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, FileText, Calendar, ArrowRight } from 'lucide-react';
+import {
+	ArrowLeft,
+	Camera,
+	FileText,
+	Home,
+	MessageSquare,
+	Users,
+} from 'lucide-react';
 import CopilotHUD from '@/components/walkthrough/CopilotHUD';
+import HomeownerUpdateUI from '@/components/communication/HomeownerUpdateUI';
+import CrewBriefingUI from '@/components/operational/CrewBriefingUI';
 
 type PageProps = {
-	params: {
+	params: Promise<{
 		projectId: string;
-	};
+	}>;
 };
 
-export default async function DashboardPage({ params }: PageProps) {
+export default async function ProjectDashboardPage({ params }: PageProps) {
+	const { projectId } = await params;
 	const cookieStore = await cookies();
-	const projectId = params.projectId;
 
 	const supabase = createServerClient(
 		process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,105 +38,120 @@ export default async function DashboardPage({ params }: PageProps) {
 
 	const {
 		data: { user },
+		error: userError,
 	} = await supabase.auth.getUser();
 
-	if (!user) {
+	if (userError || !user) {
 		redirect('/login');
 	}
 
-	// Fetch all projects for this user, newest first
-	const { data: projects, error } = await supabase
+	const { data: project, error: projectError } = await supabase
 		.from('projects')
-		.select('*')
+		.select(
+			'id, user_id, customer_name, address, project_type, status, created_at',
+		)
+		.eq('id', projectId)
 		.eq('user_id', user.id)
-		.order('created_at', { ascending: false });
+		.single();
 
-	if (error) {
-		console.error('Error fetching projects:', error);
+	if (projectError || !project) {
+		redirect('/dashboard');
 	}
 
 	return (
-		<div className="min-h-screen bg-[#0A0A0A] text-slate-100 antialiased p-6 md:p-12">
-			<div className="max-w-5xl mx-auto space-y-8">
-				{/* Header */}
-				<header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-					<div>
-						<h1 className="text-3xl font-semibold tracking-tight text-white">
-							Walkthroughs
-						</h1>
-						<p className="text-slate-400 text-sm mt-1">
-							Manage your site visits and estimate drafts.
-						</p>
+		<div className="min-h-screen bg-[#0A0A0A] p-6 text-slate-100 antialiased md:p-10">
+			<div className="mx-auto max-w-7xl space-y-8">
+				<header className="flex flex-col gap-6 border-b border-white/5 pb-8 lg:flex-row lg:items-start lg:justify-between">
+					<div className="space-y-4">
+						<Link
+							href="/dashboard"
+							className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-white"
+						>
+							<ArrowLeft className="h-4 w-4" />
+							Back to projects
+						</Link>
+
+						<div>
+							<div className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-400/15 bg-blue-400/10 px-3 py-1 text-xs font-semibold text-blue-300">
+								<Home className="h-3.5 w-3.5" />
+								Project Workspace
+							</div>
+
+							<h1 className="text-3xl font-semibold tracking-tight text-white md:text-4xl">
+								{project.customer_name}
+							</h1>
+
+							<div className="mt-3 space-y-1 text-sm text-slate-400">
+								<p>{project.project_type}</p>
+								<p>{project.address || 'Address TBD'}</p>
+							</div>
+						</div>
 					</div>
 
-					<Link
-						href="/dashboard/new"
-						className="group flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl font-medium transition-all"
-					>
-						<Plus className="w-4 h-4" />
-						New Walkthrough
-					</Link>
+					<div className="flex flex-col gap-3 sm:flex-row">
+						<Link
+							href={`/dashboard/${project.id}/capture`}
+							className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500"
+						>
+							<Camera className="h-4 w-4" />
+							Capture Walkthrough
+						</Link>
+
+						<Link
+							href={`/dashboard/${project.id}/review`}
+							className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.08]"
+						>
+							<FileText className="h-4 w-4" />
+							Review Proposal
+						</Link>
+					</div>
 				</header>
-				<CopilotHUD projectId={projectId} />
 
-				{/* Projects Grid */}
-				{projects && projects.length > 0 ? (
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-						{projects.map(project => (
-							<Link
-								key={project.id}
-								href={`/dashboard/${project.id}/review`}
-								className="block bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/10 transition-all rounded-2xl p-6 group"
-							>
-								<div className="flex justify-between items-start mb-4">
-									<div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg">
-										<FileText className="w-5 h-5" />
-									</div>
-									<span className="text-xs font-medium px-2.5 py-1 bg-white/5 text-slate-300 rounded-full">
-										{project.status === 'draft' ? 'Draft' : project.status}
-									</span>
+				<CopilotHUD projectId={project.id} />
+
+				<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
+					<section className="space-y-6">
+						<div className="rounded-3xl border border-white/5 bg-white/[0.025] p-5">
+							<div className="mb-5 flex items-center gap-3">
+								<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-300">
+									<MessageSquare className="h-5 w-5" />
 								</div>
 
-								<h3 className="text-lg font-medium text-white truncate mb-1">
-									{project.customer_name}
-								</h3>
-								<p className="text-sm text-slate-400 mb-6">
-									{project.project_type}
-								</p>
-
-								<div className="flex items-center justify-between text-xs text-slate-500 mt-auto border-t border-white/5 pt-4">
-									<div className="flex items-center gap-1.5">
-										<Calendar className="w-3.5 h-3.5" />
-										{new Date(project.created_at).toLocaleDateString()}
-									</div>
-									<ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all" />
+								<div>
+									<h2 className="text-lg font-semibold text-white">
+										Homeowner Update
+									</h2>
+									<p className="text-sm text-slate-500">
+										Generate a homeowner-ready message from project memory.
+									</p>
 								</div>
-							</Link>
-						))}
-					</div>
-				) : (
-					/* Empty State */
-					<div className="bg-white/[0.02] border border-white/5 rounded-3xl p-12 text-center space-y-4">
-						<div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6 text-slate-400">
-							<FileText className="w-8 h-8" />
+							</div>
+
+							<HomeownerUpdateUI projectId={project.id} />
 						</div>
-						<h3 className="text-xl font-medium text-white">
-							No walkthroughs yet
-						</h3>
-						<p className="text-slate-400 max-w-sm mx-auto">
-							Create your first project and record a walkthrough to see the AI
-							structuring in action.
-						</p>
-						<div className="pt-4">
-							<Link
-								href="/dashboard/new"
-								className="inline-flex items-center gap-2 bg-white text-black hover:bg-slate-200 px-6 py-3 rounded-xl font-medium transition-all"
-							>
-								Start First Walkthrough
-							</Link>
+					</section>
+
+					<section className="space-y-6">
+						<div className="rounded-3xl border border-white/5 bg-white/[0.025] p-5">
+							<div className="mb-5 flex items-center gap-3">
+								<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-300">
+									<Users className="h-5 w-5" />
+								</div>
+
+								<div>
+									<h2 className="text-lg font-semibold text-white">
+										Crew Briefing
+									</h2>
+									<p className="text-sm text-slate-500">
+										Create a field-ready handoff from saved project context.
+									</p>
+								</div>
+							</div>
+
+							<CrewBriefingUI projectId={project.id} />
 						</div>
-					</div>
-				)}
+					</section>
+				</div>
 			</div>
 		</div>
 	);
