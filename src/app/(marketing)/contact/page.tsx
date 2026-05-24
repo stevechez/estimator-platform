@@ -12,7 +12,8 @@ const contactEmail =
 
 export default function ContactPage() {
 	return (
-		<main className="min-h-screen bg-[#050505] px-6 py-12 text-slate-100 antialiased">
+		<main className="min-h-screen bg-[#050505] px-5 pb-16 pt-36 text-slate-100 antialiased sm:px-6 sm:pb-24 sm:pt-40">
+			{' '}
 			<div className="mx-auto max-w-3xl">
 				<Link
 					href="/"

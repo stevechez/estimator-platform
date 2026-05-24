@@ -12,30 +12,32 @@ const contactEmail =
 
 export default function TermsPage() {
 	return (
-		<main className="min-h-screen bg-[#050505] px-6 py-12 text-slate-100 antialiased">
-			<article className="mx-auto max-w-3xl">
+		<main className="min-h-screen bg-[#050505] px-5 pb-16 pt-32 text-slate-100 antialiased sm:px-6 sm:pb-24 sm:pt-36">
+			<article className="mx-auto max-w-4xl">
 				<Link
 					href="/"
-					className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-white"
+					className="inline-flex items-center gap-2 text-base font-semibold text-slate-500 transition hover:text-white"
 				>
 					<ArrowLeft className="h-4 w-4" />
 					Back to BUILDRAIL
 				</Link>
 
-				<div className="mt-12 rounded-3xl border border-white/[0.08] bg-white/[0.025] p-8">
-					<p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-amber-300">
+				<header className="mt-12 border-b border-white/[0.08] pb-10">
+					<p className="text-sm font-black uppercase tracking-[0.28em] text-amber-300">
 						Terms of Service
 					</p>
 
-					<h1 className="text-4xl font-black tracking-[-0.04em] text-white">
+					<h1 className="mt-5 text-4xl font-black leading-tight tracking-[-0.04em] text-white sm:text-6xl">
 						BUILDRAIL Terms of Service
 					</h1>
 
-					<p className="mt-3 text-sm text-slate-500">
-						Effective date: {effectiveDate}
+					<p className="mt-5 text-base leading-7 text-slate-500">
+						Effective date: May 23, 2026
 					</p>
+				</header>
 
-					<div className="prose prose-invert prose-slate mt-8 max-w-none prose-p:leading-7 prose-li:leading-7">
+				<div className="mt-10 space-y-10 text-base font-normal leading-8 text-slate-300 sm:text-lg sm:leading-9">
+					<div className="mt-8 space-y-7 text-base font-normal leading-8 text-slate-300">
 						<p>
 							These Terms of Service govern your use of BUILDRAIL. By using
 							BUILDRAIL, you agree to these Terms. If you do not agree, do not

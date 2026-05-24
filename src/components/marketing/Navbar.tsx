@@ -2,14 +2,19 @@
 
 import Link from 'next/link';
 
-const BuildrailLogo = () => (
+type BuildrailLogoProps = {
+	size?: number;
+	className?: string;
+};
+
+const BuildrailLogo = ({ size = 28, className }: BuildrailLogoProps) => (
 	<svg
-		width="28"
-		height="28"
+		width={size}
+		height={size}
 		viewBox="0 0 24 24"
 		fill="none"
 		xmlns="http://www.w3.org/2000/svg"
-		className="shrink-0"
+		className={`shrink-0 ${className ?? ''}`}
 	>
 		<path
 			d="M5 14L11 6L18 10L14 18Z"
@@ -63,49 +68,54 @@ const BuildrailLogo = () => (
 export default function Navbar() {
 	return (
 		// Navbar
-		<nav className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.05] bg-[#050505]/85 px-4 py-3 backdrop-blur-xl sm:px-6 sm:py-4">
-			<div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-				<Link href="/" className="flex min-w-0 items-center gap-3">
-					<BuildrailLogo />
-					<span className="mt-0.5 text-base font-black tracking-[-0.03em] text-white sm:text-lg">
+		<nav className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-[#050505]/90 px-4 py-3 backdrop-blur-xl sm:px-6">
+			<div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-4">
+				<Link href="/#top" scroll className="flex min-w-0 items-center gap-3">
+					<BuildrailLogo className="h-9 w-9 sm:h-10 sm:w-10" />
+
+					<span className="text-xl font-black tracking-[-0.04em] text-white sm:text-2xl">
 						BUILDRAIL
 					</span>
 				</Link>
 
-				<div className="hidden items-center gap-8 md:flex">
+				<div className="hidden items-center justify-center gap-10 md:flex">
 					<Link
-						href="http://localhost:3000/#memory"
-						className="text-sm font-medium text-slate-400 transition-colors hover:text-white"
+						href="/#memory"
+						scroll
+						className="text-base font-semibold text-slate-400 transition hover:text-white"
 					>
 						Memory
 					</Link>
 
 					<Link
-						href="#workflow"
-						className="text-sm font-medium text-slate-400 transition-colors hover:text-white"
+						href="/#workflow"
+						scroll
+						className="text-base font-semibold text-slate-400 transition hover:text-white"
 					>
 						Workflow
 					</Link>
 
 					<Link
-						href="#outputs"
-						className="text-sm font-medium text-slate-400 transition-colors hover:text-white"
+						href="/#outputs"
+						scroll
+						className="text-base font-semibold text-slate-400 transition hover:text-white"
 					>
 						Scope Memory
 					</Link>
 				</div>
 
-				<div className="flex shrink-0 items-center gap-3">
+				<div className="flex items-center justify-end gap-5 sm:gap-7">
 					<Link
 						href="/login"
-						className="hidden text-sm font-medium text-slate-300 transition-colors hover:text-white sm:flex"
+						className="hidden text-base font-semibold text-slate-300 transition hover:text-white sm:inline-flex"
 					>
 						Sign In
 					</Link>
 
 					<Link
-						href="#waitlist"
-						className="rounded-xl bg-white px-4 py-3 text-sm font-black text-black shadow-[0_0_20px_-5px_rgba(255,255,255,0.35)] transition-all hover:bg-slate-200 active:scale-95 sm:px-4 sm:py-2"
+						href="/#waitlist"
+						scroll
+						className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-base font-black text-black shadow-2xl shadow-white/10 transition hover:bg-slate-200 sm:px-7"
 					>
 						Request Trial
 					</Link>
