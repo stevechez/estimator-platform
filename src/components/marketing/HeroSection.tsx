@@ -35,7 +35,7 @@ export default function HeroSection() {
 						href="#waitlist"
 						className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-sm font-black tracking-[-0.01em] text-black shadow-[0_0_40px_-16px_rgba(255,255,255,0.75)] transition-all hover:bg-slate-200 active:scale-95 sm:w-auto sm:px-7"
 					>
-						Start Your 7-Day Field Trial
+						Request Your 7-Day Field Trial
 						<ChevronRight className="h-4 w-4 text-black transition-transform group-hover:translate-x-0.5" />
 					</Link>
 					<Link
