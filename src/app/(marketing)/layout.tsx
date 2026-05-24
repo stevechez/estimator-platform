@@ -1,4 +1,5 @@
 // app/(marketing)/layout.tsx
+import Navbar from '@/components/marketing/Navbar';
 
 export default function MarketingLayout({
 	children,
@@ -7,6 +8,7 @@ export default function MarketingLayout({
 }) {
 	return (
 		<>
+			<Navbar />
 			<div className="pt-16 flex-1 flex flex-col">{children}</div>
 		</>
 	);
