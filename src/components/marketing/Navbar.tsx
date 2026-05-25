@@ -69,11 +69,15 @@ export default function Navbar() {
 	return (
 		// Navbar
 		<nav className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-[#050505]/90 px-4 py-3 backdrop-blur-xl sm:px-6">
-			<div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-4">
-				<Link href="/#top" scroll className="flex min-w-0 items-center gap-3">
-					<BuildrailLogo className="h-9 w-9 sm:h-10 sm:w-10" />
+			<div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 md:grid-cols-[1fr_auto_1fr]">
+				<Link
+					href="/#top"
+					scroll
+					className="flex min-w-0 items-center gap-2.5 sm:gap-3"
+				>
+					<BuildrailLogo className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" />
 
-					<span className="text-xl font-black tracking-[-0.04em] text-white sm:text-2xl">
+					<span className="min-w-0 truncate text-[1.35rem] font-black tracking-[-0.045em] text-white sm:text-2xl">
 						BUILDRAIL
 					</span>
 				</Link>
@@ -104,10 +108,10 @@ export default function Navbar() {
 					</Link>
 				</div>
 
-				<div className="flex items-center justify-end gap-5 sm:gap-7">
+				<div className="flex items-center justify-end gap-4 sm:gap-6">
 					<Link
 						href="/login"
-						className="hidden text-base font-semibold text-slate-300 transition hover:text-white sm:inline-flex"
+						className="hidden text-base font-semibold text-slate-300 transition hover:text-white md:inline-flex"
 					>
 						Sign In
 					</Link>
@@ -115,9 +119,10 @@ export default function Navbar() {
 					<Link
 						href="/#waitlist"
 						scroll
-						className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-base font-black text-black shadow-2xl shadow-white/10 transition hover:bg-slate-200 sm:px-7"
+						className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-black text-black shadow-2xl shadow-white/10 transition hover:bg-slate-200 sm:px-6 sm:text-base"
 					>
-						Request Trial
+						<span className="sm:hidden">Request</span>
+						<span className="hidden sm:inline">Request Trial</span>
 					</Link>
 				</div>
 			</div>
